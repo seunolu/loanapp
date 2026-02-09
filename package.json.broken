@@ -1,0 +1,21 @@
+﻿{
+  "name": "nigerian-loan-platform",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "eslint": "^9.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+﻿{
+  "name": "@app/api",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node -e \"console.log('no tests yet')\""
+  }
+}

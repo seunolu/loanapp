@@ -1,0 +1,10 @@
+{
+  "name": "@app/mobile",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "node -e \"console.log('typecheck later')\"",
+    "test": "node -e \"console.log('no tests yet')\""
+  }
+}

@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16
+    container_name: loanapp_db
+    environment:
+      POSTGRES_USER: loanapp
+      POSTGRES_PASSWORD: loanapp
+      POSTGRES_DB: loanapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - loanapp_db_data:/var/lib/postgresql/data
+volumes:
+  loanapp_db_data:

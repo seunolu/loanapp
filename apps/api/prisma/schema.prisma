@@ -1,0 +1,1023 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppMeta {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model IdempotencyKey {
+  id             String            @id @default(cuid())
+  key            String
+  requestMethod  String
+  requestPath    String
+  requestHash    String
+  status         IdempotencyStatus @default(PENDING)
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([key, requestMethod, requestPath])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  event     String
+  action    String?
+  lenderId  String?
+  requestId String?
+  ip        String?
+  userAgent String?
+  actorType String?
+  actorId   String?
+  entityType String?
+  entityId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  lender    Lender?  @relation(fields: [lenderId], references: [id], onDelete: SetNull)
+
+  @@index([event])
+  @@index([action])
+  @@index([lenderId, createdAt])
+  @@index([actorType, actorId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([requestId])
+  @@index([createdAt])
+}
+
+model NotificationLog {
+  id          String             @id @default(cuid())
+  event       String
+  channel     NotificationChannel
+  provider    String
+  recipient   String
+  message     String
+  status      NotificationStatus
+  error       String?
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+
+  @@index([event, createdAt])
+  @@index([status, createdAt])
+  @@index([recipient, createdAt])
+}
+
+model Lender {
+  id            String          @id @default(cuid())
+  name          String
+  slug          String          @unique
+  status        LenderStatus    @default(ACTIVE)
+  onboardingStatus LenderOnboardingStatus @default(PENDING)
+  onboardedAt   DateTime?
+  settings      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  admins        AdminUser[]
+  borrowers     Borrower[]
+  kycCases      KycCase[]
+  loanApplications LoanApplication[]
+  loanOffers    LoanOffer[]
+  loans         Loan[]
+  payments      Payment[]
+  disbursements Disbursement[]
+  otpChallenges OtpChallenge[]
+  borrowerNotes BorrowerNote[]
+  borrowerOverrides BorrowerOverride[]
+  underwritingCases UnderwritingCase[]
+  auditLogs AuditLog[]
+  roles Role[]
+  adminRoleAssignments AdminRoleAssignment[]
+  dailyAggregates DailyAggregate[]
+  devices Device[]
+  borrowerRiskProfiles BorrowerRiskProfile[]
+  blacklistEntries BlacklistEntry[]
+  riskEvents RiskEvent[]
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        JobType
+  key         String
+  payload     Json?
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  deadAt      DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([type, key])
+  @@index([status, runAt, createdAt])
+}
+
+model DailyAggregate {
+  id                        String   @id @default(cuid())
+  lenderId                  String
+  date                      DateTime
+  activeLoansCount          Int
+  overdueLoansCount         Int
+  principalOutstandingKobo  Int
+  totalOutstandingKobo      Int
+  disbursedKobo             Int
+  collectionsKobo           Int
+  par1Kobo                  Int
+  par7Kobo                  Int
+  par30Kobo                 Int
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  lender                    Lender   @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@unique([lenderId, date])
+  @@index([date])
+}
+
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  lenderId   String
+  otpRef     String    @unique
+  phone      String
+  otpHash    String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  lender     Lender    @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+
+  @@index([lenderId])
+  @@index([phone, createdAt])
+  @@index([expiresAt])
+}
+
+model Borrower {
+  id        String          @id @default(cuid())
+  lenderId  String
+  phone     String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  lender    Lender          @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  devices   BorrowerDevice[]
+  profile   BorrowerProfile?
+  consents  ConsentRecord[]
+  sessions  Session[]
+  files     File[]
+  kycCase   KycCase?
+  loanApplications LoanApplication[]
+  loanOffers LoanOffer[]
+  loans Loan[]
+  bankAccounts BankAccount[]
+  payments Payment[]
+  notes BorrowerNote[]
+  override BorrowerOverride?
+  underwritingCases UnderwritingCase[]
+  riskProfile BorrowerRiskProfile?
+  riskEvents RiskEvent[]
+  trackedDevices Device[] @relation("BorrowerTrackedDevices")
+
+  @@unique([lenderId, phone])
+  @@index([lenderId])
+}
+
+model Device {
+  id          String    @id @default(cuid())
+  lenderId    String
+  borrowerId  String?
+  deviceId    String
+  ip          String?
+  userAgent   String?
+  fingerprint String?
+  lastSeenAt  DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lender      Lender    @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  borrower    Borrower? @relation("BorrowerTrackedDevices", fields: [borrowerId], references: [id], onDelete: SetNull)
+  riskEvents  RiskEvent[]
+
+  @@unique([lenderId, deviceId])
+  @@index([borrowerId, lastSeenAt])
+}
+
+model BorrowerRiskProfile {
+  id            String    @id @default(cuid())
+  lenderId      String
+  borrowerId    String    @unique
+  score         Int       @default(0)
+  level         RiskLevel @default(LOW)
+  lastEvaluatedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lender        Lender    @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  borrower      Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+
+  @@index([lenderId, level])
+}
+
+model BlacklistEntry {
+  id         String             @id @default(cuid())
+  lenderId   String?
+  type       BlacklistEntryType
+  value      String
+  reason     String?
+  isActive   Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  lender     Lender?            @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@unique([lenderId, type, value])
+  @@index([type, value, isActive])
+}
+
+model RiskEvent {
+  id          String    @id @default(cuid())
+  lenderId    String
+  borrowerId  String?
+  deviceId    String?
+  eventType   String
+  scoreDelta  Int
+  totalScore  Int
+  level       RiskLevel
+  blocked     Boolean   @default(false)
+  reason      String?
+  ip          String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  lender      Lender    @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  borrower    Borrower? @relation(fields: [borrowerId], references: [id], onDelete: SetNull)
+  device      Device?   @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([lenderId, createdAt])
+  @@index([borrowerId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model BorrowerNote {
+  id          String    @id @default(cuid())
+  lenderId    String
+  borrowerId  String
+  note        String
+  createdById String
+  createdAt   DateTime  @default(now())
+  lender      Lender    @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower    Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  createdBy   AdminUser @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([lenderId, borrowerId, createdAt])
+  @@index([createdById])
+}
+
+model BorrowerOverride {
+  id            String    @id @default(cuid())
+  lenderId      String
+  borrowerId    String    @unique
+  maxLoanKobo   Int?
+  maxTenorDays  Int?
+  updatedById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lender        Lender    @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower      Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  updatedBy     AdminUser @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([lenderId, borrowerId])
+}
+
+model BorrowerDevice {
+  id         String    @id @default(cuid())
+  borrowerId String
+  deviceId   String
+  platform   String?
+  deviceName String?
+  lastSeenAt DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  borrower   Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  sessions   Session[]
+
+  @@unique([borrowerId, deviceId])
+  @@index([borrowerId])
+}
+
+model Session {
+  id               String          @id @default(cuid())
+  borrowerId       String
+  borrowerDeviceId String?
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastSeenAt       DateTime
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  borrower         Borrower        @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  borrowerDevice   BorrowerDevice? @relation(fields: [borrowerDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([borrowerId])
+  @@index([borrowerDeviceId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model BorrowerProfile {
+  id           String   @id @default(cuid())
+  borrowerId   String   @unique
+  firstName    String
+  lastName     String
+  dateOfBirth  DateTime
+  gender       String?
+  addressLine1 String?
+  city         String?
+  state        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  borrower     Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+}
+
+model ConsentRecord {
+  id         String   @id @default(cuid())
+  borrowerId String
+  type       String
+  version    String
+  acceptedAt DateTime @default(now())
+  ip         String?
+  userAgent  String?
+  metadata   Json?
+  borrower   Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+
+  @@unique([borrowerId, type, version])
+  @@index([borrowerId, acceptedAt])
+}
+
+model File {
+  id           String       @id @default(cuid())
+  borrowerId   String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  purpose      String
+  storageKey   String       @unique
+  status       FileStatus   @default(PENDING)
+  confirmedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  borrower     Borrower     @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  kycDocuments KycDocument[]
+
+  @@index([borrowerId, status])
+}
+
+model KycCase {
+  id          String        @id @default(cuid())
+  lenderId    String
+  borrowerId  String        @unique
+  status      KycCaseStatus @default(PENDING)
+  submittedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  lender      Lender        @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower    Borrower      @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  documents   KycDocument[]
+
+  @@index([lenderId])
+}
+
+model KycDocument {
+  id        String   @id @default(cuid())
+  kycCaseId String
+  fileId    String
+  createdAt DateTime @default(now())
+  kycCase   KycCase  @relation(fields: [kycCaseId], references: [id], onDelete: Cascade)
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@unique([kycCaseId, fileId])
+  @@index([fileId])
+}
+
+model AdminUser {
+  id           String        @id @default(cuid())
+  lenderId     String?
+  email        String
+  passwordHash String?
+  passwordSetAt DateTime?
+  role         AdminRole
+  status       AdminStatus   @default(ACTIVE)
+  lastLoginAt  DateTime?
+  lastLoginIp  String?
+  lastUserAgent String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lender       Lender?       @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  sessions     AdminSession[]
+  disbursementsInitiated Disbursement[]
+  borrowerNotes BorrowerNote[]
+  borrowerOverridesUpdated BorrowerOverride[]
+  underwritingCasesDecided UnderwritingCase[]
+  inviteTokens AdminInviteToken[]
+  roleAssignment AdminRoleAssignment? @relation("AdminUserAssignedRole")
+  assignedRoleAssignments AdminRoleAssignment[] @relation("AdminUserRoleAssignedBy")
+
+  @@unique([lenderId, email])
+  @@index([lenderId])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  rolePermissions RolePermission[]
+}
+
+model Role {
+  id          String                @id @default(cuid())
+  lenderId    String
+  name        String
+  description String?
+  isSystem    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  lender      Lender                @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  assignments AdminRoleAssignment[]
+
+  @@unique([lenderId, name])
+  @@index([lenderId, createdAt])
+}
+
+model RolePermission {
+  id           String      @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime    @default(now())
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model AdminRoleAssignment {
+  id          String    @id @default(cuid())
+  lenderId    String
+  adminUserId String    @unique
+  roleId      String
+  assignedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lender      Lender    @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  adminUser   AdminUser @relation("AdminUserAssignedRole", fields: [adminUserId], references: [id], onDelete: Cascade)
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy  AdminUser? @relation("AdminUserRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([lenderId, adminUserId])
+  @@index([lenderId, roleId])
+}
+
+model AdminInviteToken {
+  id          String    @id @default(cuid())
+  adminUserId String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, expiresAt])
+}
+
+model AdminSession {
+  id               String      @id @default(cuid())
+  adminUserId      String
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastSeenAt       DateTime
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  adminUser        AdminUser   @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model LoanApplication {
+  id              String                @id @default(cuid())
+  lenderId        String
+  borrowerId      String
+  amountRequested Int
+  tenorDays       Int
+  status          LoanApplicationStatus @default(SUBMITTED)
+  submittedAt     DateTime              @default(now())
+  reviewedAt      DateTime?
+  reviewReason    String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  lender          Lender                @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower        Borrower              @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  offer           LoanOffer?
+  underwritingCase UnderwritingCase?
+
+  @@index([lenderId, status])
+  @@index([borrowerId, status])
+  @@index([createdAt])
+}
+
+model UnderwritingCase {
+  id                  String                 @id @default(cuid())
+  lenderId            String
+  borrowerId          String
+  loanApplicationId   String                 @unique
+  status              UnderwritingCaseStatus @default(PENDING)
+  monthlyIncomeKobo   Int?
+  existingDebtKobo    Int?
+  riskLevel           String?
+  decisionNotes       String?
+  decidedByAdminId    String?
+  completedAt         DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  lender              Lender                 @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower            Borrower               @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  loanApplication     LoanApplication        @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  decidedByAdmin      AdminUser?             @relation(fields: [decidedByAdminId], references: [id], onDelete: SetNull)
+  checklistItems      UnderwritingChecklistItem[]
+
+  @@index([lenderId, status, createdAt])
+  @@index([borrowerId])
+}
+
+model UnderwritingChecklistItem {
+  id                String                    @id @default(cuid())
+  underwritingCaseId String
+  code              String
+  label             String
+  status            UnderwritingChecklistStatus @default(PENDING)
+  isRequired        Boolean                   @default(true)
+  notes             String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  underwritingCase  UnderwritingCase          @relation(fields: [underwritingCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([underwritingCaseId, code])
+  @@index([underwritingCaseId, status])
+}
+
+model LoanOffer {
+  id                String                  @id @default(cuid())
+  loanApplicationId String                  @unique
+  lenderId          String
+  borrowerId        String
+  status            LoanOfferStatus         @default(OFFERED)
+  principalAmount   Int
+  interestAmount    Int
+  feeAmount         Int
+  totalRepayable    Int
+  offeredByAdminId  String
+  offeredAt         DateTime                @default(now())
+  expiresAt         DateTime
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  lender            Lender                  @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  loanApplication   LoanApplication         @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  borrower          Borrower                @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  scheduleItems     LoanOfferScheduleItem[]
+  loan              Loan?
+
+  @@index([lenderId, status])
+  @@index([borrowerId])
+  @@index([status])
+}
+
+model LoanOfferScheduleItem {
+  id          String    @id @default(cuid())
+  loanOfferId String
+  dueDate     DateTime
+  amount      Int
+  createdAt   DateTime  @default(now())
+  loanOffer   LoanOffer @relation(fields: [loanOfferId], references: [id], onDelete: Cascade)
+
+  @@index([loanOfferId, dueDate])
+}
+
+model Loan {
+  id               String     @id @default(cuid())
+  lenderId         String
+  borrowerId       String
+  loanOfferId      String     @unique
+  status           LoanStatus @default(PENDING_DISBURSEMENT)
+  principalAmount  Int
+  interestAmount   Int
+  feeAmount        Int
+  totalRepayable   Int
+  contractSnapshot Json
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  lender           Lender     @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower         Borrower   @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  loanOffer        LoanOffer  @relation(fields: [loanOfferId], references: [id], onDelete: Cascade)
+  balance          LoanBalance?
+  repaymentSchedule RepaymentScheduleItem[]
+  repayments       Repayment[]
+  penaltyAccruals  PenaltyAccrual[]
+  disbursement     Disbursement?
+  payments         Payment[]
+
+  @@index([lenderId, status])
+  @@index([borrowerId, status])
+}
+
+model RepaymentScheduleItem {
+  id        String   @id @default(cuid())
+  loanId    String
+  dueDate   DateTime
+  amount    Int
+  status    RepaymentScheduleItemStatus @default(PENDING)
+  paidAmountKobo Int  @default(0)
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId, dueDate])
+}
+
+model BankAccount {
+  id            String    @id @default(cuid())
+  borrowerId    String
+  bankCode      String
+  bankName      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  borrower      Borrower  @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  disbursements Disbursement[]
+
+  @@unique([borrowerId, bankCode, accountNumber])
+  @@index([borrowerId, isDefault])
+}
+
+model Disbursement {
+  id            String             @id @default(cuid())
+  lenderId      String
+  loanId        String             @unique
+  bankAccountId String
+  amountKobo    Int
+  status        DisbursementStatus @default(INITIATED)
+  initiatedBy   String
+  initiatedAt   DateTime           @default(now())
+  journalEntryId String?           @unique
+  succeededAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  lender        Lender             @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  loan          Loan               @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount        @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  initiatedByAdmin AdminUser       @relation(fields: [initiatedBy], references: [id], onDelete: Restrict)
+  journalEntry  JournalEntry?      @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([lenderId, status, initiatedAt])
+  @@index([bankAccountId])
+  @@index([status, initiatedAt])
+}
+
+model Payment {
+  id               String         @id @default(cuid())
+  reference        String         @unique
+  lenderId         String
+  borrowerId       String
+  loanId           String
+  amountKobo       Int
+  purpose          PaymentPurpose @default(LOAN_REPAYMENT)
+  provider         PaymentProvider @default(PAYSTACK)
+  status           PaymentStatus  @default(INITIATED)
+  providerRef      String?
+  authorizationUrl String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  lender           Lender         @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  borrower         Borrower       @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  loan             Loan           @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  repayment        Repayment?
+  webhookEvents    WebhookEvent[]
+
+  @@index([lenderId, createdAt])
+  @@index([borrowerId, createdAt])
+  @@index([loanId, status])
+  @@unique([provider, providerRef])
+}
+
+model LoanBalance {
+  id                         String   @id @default(cuid())
+  loanId                     String   @unique
+  outstandingPrincipalKobo   Int
+  outstandingInterestKobo    Int
+  outstandingFeesKobo        Int
+  outstandingPenaltiesKobo   Int      @default(0)
+  totalOutstandingKobo       Int
+  paidPrincipalKobo          Int      @default(0)
+  paidInterestKobo           Int      @default(0)
+  paidFeesKobo               Int      @default(0)
+  paidPenaltiesKobo          Int      @default(0)
+  totalPaidKobo              Int      @default(0)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  loan                       Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+}
+
+model Repayment {
+  id                     String   @id @default(cuid())
+  loanId                 String
+  paymentId              String   @unique
+  amountKobo             Int
+  allocatedFeesKobo      Int      @default(0)
+  allocatedPenaltiesKobo Int      @default(0)
+  allocatedInterestKobo  Int      @default(0)
+  allocatedPrincipalKobo Int      @default(0)
+  unallocatedKobo        Int      @default(0)
+  journalEntryId         String?  @unique
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  loan                   Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  payment                Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  journalEntry           JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  allocations            RepaymentAllocation[]
+
+  @@index([loanId, createdAt])
+}
+
+model RepaymentAllocation {
+  id          String                  @id @default(cuid())
+  repaymentId String
+  bucket      RepaymentAllocationType
+  amountKobo  Int
+  createdAt   DateTime                @default(now())
+  repayment   Repayment               @relation(fields: [repaymentId], references: [id], onDelete: Cascade)
+
+  @@index([repaymentId])
+  @@index([bucket])
+}
+
+model PenaltyAccrual {
+  id             String       @id @default(cuid())
+  loanId         String
+  accrualDate    DateTime
+  amountKobo     Int
+  journalEntryId String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  loan           Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@unique([loanId, accrualDate])
+  @@index([loanId, createdAt])
+}
+
+model WebhookEvent {
+  id             String             @id @default(cuid())
+  provider       PaymentProvider
+  eventType      String?
+  signature      String?
+  signatureValid Boolean
+  status         WebhookEventStatus @default(RECEIVED)
+  payload        Json
+  paymentId      String?
+  processedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  payment        Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([provider, eventType, createdAt])
+  @@index([status, createdAt])
+  @@index([paymentId])
+}
+
+model LedgerAccount {
+  id        String            @id @default(cuid())
+  code      String            @unique
+  name      String
+  type      LedgerAccountType
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  lines     JournalLine[]
+
+  @@index([type, isActive])
+}
+
+model JournalEntry {
+  id          String        @id @default(cuid())
+  description String?
+  reference   String?
+  requestId   String?
+  postedAt    DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  lines       JournalLine[]
+  disbursement Disbursement?
+  repayments  Repayment[]
+  penaltyAccruals PenaltyAccrual[]
+
+  @@index([postedAt])
+  @@index([reference])
+  @@index([requestId])
+}
+
+model JournalLine {
+  id              String          @id @default(cuid())
+  journalEntryId  String
+  ledgerAccountId String
+  entryType       JournalLineType
+  amountKobo      Int
+  description     String?
+  createdAt       DateTime        @default(now())
+  journalEntry    JournalEntry    @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  ledgerAccount   LedgerAccount   @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
+
+  @@index([journalEntryId])
+  @@index([ledgerAccountId])
+  @@index([entryType])
+}
+
+enum IdempotencyStatus {
+  PENDING
+  COMPLETED
+}
+
+enum FileStatus {
+  PENDING
+  CONFIRMED
+}
+
+enum KycCaseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AdminRole {
+  PLATFORM_SUPER_ADMIN
+  OWNER
+  SUPER_ADMIN
+  OPS
+  FINANCE
+  VIEWER
+}
+
+enum AdminStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum LoanApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum LoanOfferStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum LoanStatus {
+  PENDING_DISBURSEMENT
+  ACTIVE
+  OVERDUE
+  CLOSED
+}
+
+enum RepaymentScheduleItemStatus {
+  PENDING
+  PAID
+  LATE
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum JournalLineType {
+  DEBIT
+  CREDIT
+}
+
+enum DisbursementStatus {
+  INITIATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentPurpose {
+  LOAN_REPAYMENT
+}
+
+enum PaymentProvider {
+  PAYSTACK
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  REJECTED
+}
+
+enum RepaymentAllocationType {
+  FEES
+  PENALTIES
+  INTEREST
+  PRINCIPAL
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum LenderStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LenderOnboardingStatus {
+  PENDING
+  COMPLETED
+}
+
+enum JobType {
+  OVERDUE_SCAN
+  PENALTY_ACCRUAL_DAILY
+  DAILY_AGGREGATE_BUILD
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DEAD
+}
+
+enum UnderwritingCaseStatus {
+  PENDING
+  IN_REVIEW
+  COMPLETED
+  REJECTED
+}
+
+enum UnderwritingChecklistStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum BlacklistEntryType {
+  PHONE
+  BVN_LAST4
+  DEVICE_ID
+  IP
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}

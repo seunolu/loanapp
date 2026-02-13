@@ -25,5 +25,21 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
+      - name: Prisma Generate
+        run: pnpm -C apps/api prisma:generate
+      - name: OpenAPI Lint
+        run: pnpm api:openapi:lint
+      - name: SDK Generate
+        run: pnpm sdk:generate
+      - name: SDK Build
+        run: pnpm sdk:build
+      - name: Build API
+        run: pnpm -C apps/api build
+      - name: Build Admin
+        run: pnpm -C apps/admin build
       - name: Test
         run: pnpm test
+      - name: Docker Build (prod-like)
+        run: |
+          docker build -f apps/api/Dockerfile .
+          docker build -f apps/admin/Dockerfile .

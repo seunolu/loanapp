@@ -7,11 +7,19 @@
     "format": "prettier -w .",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api:openapi:lint": "redocly lint docs/openapi.yaml",
+    "sdk:generate": "pnpm -C packages/sdk generate",
+    "sdk:build": "pnpm -C packages/sdk build",
+    "admin:dev": "pnpm -C apps/admin dev",
+    "admin:build": "pnpm -C apps/admin build",
+    "admin:lint": "pnpm -C apps/admin lint"
   },
   "devDependencies": {
+    "@redocly/cli": "^1.27.1",
     "@eslint/js": "^9.39.2",
     "eslint": "^9.39.2",
+    "openapi-typescript": "^7.6.1",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
   },

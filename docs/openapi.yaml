@@ -1,0 +1,1048 @@
+openapi: 3.0.3
+info:
+  title: LoanApp API
+  version: 1.0.0
+  description: Frozen v1 API contract (all registered routes listed).
+servers:
+  - url: /api/v1
+tags:
+  - { name: Public }
+  - { name: Auth }
+  - { name: Me }
+  - { name: BankAccounts }
+  - { name: Files }
+  - { name: Kyc }
+  - { name: Loans }
+  - { name: Payments }
+  - { name: Webhooks }
+  - { name: AdminAuth }
+  - { name: AdminUsers }
+  - { name: AdminBorrowers }
+  - { name: AdminRoles }
+  - { name: AdminLoans }
+  - { name: AdminDisbursements }
+  - { name: AdminUnderwriting }
+  - { name: AdminReports }
+  - { name: AdminJobs }
+  - { name: AdminLenders }
+  - { name: AdminAuditLogs }
+  - { name: PlatformOnboarding }
+  - { name: Dev }
+paths:
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /public/config:
+    get:
+      tags: [Public]
+      summary: Public tenant config
+      parameters:
+        - { $ref: '#/components/parameters/X-Lender-Id' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '404': { $ref: '#/components/responses/StandardError' }
+
+  /auth/request-otp:
+    post:
+      tags: [Auth]
+      summary: Request OTP
+      parameters:
+        - { $ref: '#/components/parameters/X-Lender-Id' }
+        - { $ref: '#/components/parameters/X-Device-Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '429': { $ref: '#/components/responses/StandardError' }
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP
+      parameters:
+        - { $ref: '#/components/parameters/X-Lender-Id' }
+        - { $ref: '#/components/parameters/X-Device-Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/StandardError' }
+        '401': { $ref: '#/components/responses/StandardError' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Borrower refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/StandardError' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Borrower logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  /me:
+    get:
+      tags: [Me]
+      summary: Borrower me
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/StandardError' }
+
+  /me/profile:
+    put:
+      tags: [Me]
+      summary: Upsert profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /me/consents:
+    post:
+      tags: [Me]
+      summary: Accept consent
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /me/bank-accounts:
+    get:
+      tags: [BankAccounts]
+      summary: List bank accounts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+    post:
+      tags: [BankAccounts]
+      summary: Create or update bank account
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /files/upload-url:
+    post:
+      tags: [Files]
+      summary: Issue upload URL
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /files/complete:
+    post:
+      tags: [Files]
+      summary: Confirm file
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  /kyc/submit:
+    post:
+      tags: [Kyc]
+      summary: Submit kyc
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /kyc/status:
+    get:
+      tags: [Kyc]
+      summary: KYC status
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /loans/applications:
+    post:
+      tags: [Loans]
+      summary: Create loan application
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/StandardError' }
+        '409': { $ref: '#/components/responses/StandardError' }
+
+  /loans/applications/{id}:
+    get:
+      tags: [Loans]
+      summary: Get application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /loans/offers/{applicationId}:
+    get:
+      tags: [Loans]
+      summary: Get offer by application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApplicationIdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /loans/offers/{offerId}/accept:
+    post:
+      tags: [Loans]
+      summary: Accept offer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OfferIdPath' }
+        - { $ref: '#/components/parameters/Idempotency-Key' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/StandardError' }
+
+  /loans/offers/{offerId}/decline:
+    post:
+      tags: [Loans]
+      summary: Decline offer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/OfferIdPath' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  /loans/{loanId}/schedule:
+    get:
+      tags: [Loans]
+      summary: Borrower schedule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/LoanIdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /payments/initialize:
+    post:
+      tags: [Payments]
+      summary: Initialize payment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Idempotency-Key' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /webhooks/paystack:
+    post:
+      tags: [Webhooks]
+      summary: Paystack webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/StandardError' }
+
+  /admin/auth/login:
+    post:
+      tags: [AdminAuth]
+      summary: Admin login
+      parameters:
+        - { $ref: '#/components/parameters/X-Lender-Id-Optional' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/auth/refresh:
+    post:
+      tags: [AdminAuth]
+      summary: Admin refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/auth/logout:
+    post:
+      tags: [AdminAuth]
+      summary: Admin logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+
+  /admin/auth/invite/validate:
+    post:
+      tags: [AdminAuth]
+      summary: Validate invite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/auth/setup-password:
+    post:
+      tags: [AdminAuth]
+      summary: Setup password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '429': { $ref: '#/components/responses/StandardError' }
+
+  /admin/admin-users:
+    get:
+      tags: [AdminUsers]
+      summary: List admin users
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Query' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+    post:
+      tags: [AdminUsers]
+      summary: Create admin user
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/admin-users/{id}:
+    get:
+      tags: [AdminUsers]
+      summary: Admin user details
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/admin-users/{id}/status:
+    patch:
+      tags: [AdminUsers]
+      summary: Change admin status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/admin-users/{id}/reset:
+    post:
+      tags: [AdminUsers]
+      summary: Re-issue invite
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/borrowers:
+    get:
+      tags: [AdminBorrowers]
+      summary: List borrowers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Query' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+    post:
+      tags: [AdminBorrowers]
+      summary: Create borrower
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/borrowers/{id}:
+    get:
+      tags: [AdminBorrowers]
+      summary: Borrower details
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/borrowers/{id}/risk:
+    get:
+      tags: [AdminBorrowers]
+      summary: Borrower risk
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/borrowers/{id}/notes:
+    post:
+      tags: [AdminBorrowers]
+      summary: Add borrower note
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/borrowers/{id}/override:
+    put:
+      tags: [AdminBorrowers]
+      summary: Set borrower override
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/roles:
+    get:
+      tags: [AdminRoles]
+      summary: List roles
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/admin-users/{id}/roles:
+    put:
+      tags: [AdminRoles]
+      summary: Assign role
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/loans/applications:
+    get:
+      tags: [AdminLoans]
+      summary: List loan applications
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Status' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+
+  /admin/loans/applications/{id}/approve:
+    post:
+      tags: [AdminLoans]
+      summary: Approve application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/StandardError' }
+
+  /admin/loans/applications/{id}/offer/preview:
+    post:
+      tags: [AdminLoans]
+      summary: Offer preview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/loans/applications/{id}/reject:
+    post:
+      tags: [AdminLoans]
+      summary: Reject application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/loans/{loanId}/schedule:
+    get:
+      tags: [AdminLoans]
+      summary: Loan schedule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/LoanIdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/loans/{loanId}/accrue-penalty:
+    post:
+      tags: [AdminLoans]
+      summary: Accrue penalty
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/LoanIdPath' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/loans/{loanId}/penalties:
+    get:
+      tags: [AdminLoans]
+      summary: Penalties list
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/LoanIdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/disbursements:
+    post:
+      tags: [AdminDisbursements]
+      summary: Create disbursement
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/disbursements/{id}/mark-processing:
+    post:
+      tags: [AdminDisbursements]
+      summary: Mark processing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/disbursements/{id}/mark-succeeded:
+    post:
+      tags: [AdminDisbursements]
+      summary: Mark succeeded
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+        - { $ref: '#/components/parameters/Idempotency-Key' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/StandardError' }
+
+  /admin/disbursements/{id}/mark-failed:
+    post:
+      tags: [AdminDisbursements]
+      summary: Mark failed
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/underwriting/cases:
+    get:
+      tags: [AdminUnderwriting]
+      summary: List underwriting cases
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Status' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+
+  /admin/underwriting/cases/{applicationId}:
+    get:
+      tags: [AdminUnderwriting]
+      summary: Get underwriting case
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApplicationIdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+    patch:
+      tags: [AdminUnderwriting]
+      summary: Update underwriting case
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApplicationIdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/underwriting/cases/{applicationId}/checklist:
+    post:
+      tags: [AdminUnderwriting]
+      summary: Upsert checklist
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApplicationIdPath' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/reports/summary:
+    get:
+      tags: [AdminReports]
+      summary: Report summary
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/AsOf' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/reports/portfolio:
+    get:
+      tags: [AdminReports]
+      summary: Report portfolio
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/reports/collections:
+    get:
+      tags: [AdminReports]
+      summary: Report collections
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/reports/par:
+    get:
+      tags: [AdminReports]
+      summary: Report PAR
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/AsOf' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/jobs:
+    get:
+      tags: [AdminJobs]
+      summary: List jobs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Status' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+
+  /admin/jobs/{id}/retry:
+    post:
+      tags: [AdminJobs]
+      summary: Retry job
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/health:
+    get:
+      tags: [AdminJobs]
+      summary: Admin health
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/lenders:
+    post:
+      tags: [AdminLenders]
+      summary: Create lender
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/lenders/me:
+    get:
+      tags: [AdminLenders]
+      summary: Get lender
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+    patch:
+      tags: [AdminLenders]
+      summary: Update lender settings
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /admin/audit-logs:
+    get:
+      tags: [AdminAuditLogs]
+      summary: List audit logs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedOk' }
+
+  /admin/audit-logs/export.csv:
+    get:
+      tags: [AdminAuditLogs]
+      summary: Export audit CSV
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200':
+          description: CSV stream
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+
+  /platform/onboarding/lenders:
+    post:
+      tags: [PlatformOnboarding]
+      summary: Create lender + owner
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Idempotency-Key' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /platform/onboarding/lenders/{id}:
+    get:
+      tags: [PlatformOnboarding]
+      summary: Get onboarding lender
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /dev/idempotency-demo:
+    post:
+      tags: [Dev]
+      summary: Dev idempotency demo
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /dev/audit-demo:
+    post:
+      tags: [Dev]
+      summary: Dev audit demo
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /dev/ledger-demo:
+    post:
+      tags: [Dev]
+      summary: Dev ledger demo
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    X-Request-Id:
+      description: Request correlation ID
+      schema: { type: string }
+  parameters:
+    X-Lender-Id:
+      name: X-Lender-Id
+      in: header
+      required: true
+      schema: { type: string }
+    X-Lender-Id-Optional:
+      name: X-Lender-Id
+      in: header
+      required: false
+      schema: { type: string }
+    X-Device-Id:
+      name: X-Device-Id
+      in: header
+      required: false
+      schema: { type: string }
+    Idempotency-Key:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string }
+    Query:
+      name: query
+      in: query
+      required: false
+      schema: { type: string }
+    Status:
+      name: status
+      in: query
+      required: false
+      schema: { type: string }
+    AsOf:
+      name: asOf
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    From:
+      name: from
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    LoanIdPath:
+      name: loanId
+      in: path
+      required: true
+      schema: { type: string }
+    OfferIdPath:
+      name: offerId
+      in: path
+      required: true
+      schema: { type: string }
+    ApplicationIdPath:
+      name: applicationId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { nullable: true }
+            requestId: { type: string }
+          required: [code, message, details, requestId]
+      required: [error]
+    PaginatedEnvelope:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { type: object, additionalProperties: true }
+        nextCursor: { type: string, nullable: true }
+      required: [items, nextCursor]
+    GenericRequest:
+      type: object
+      additionalProperties: true
+    GenericObject:
+      type: object
+      additionalProperties: true
+    GenericArray:
+      type: array
+      items: { type: object, additionalProperties: true }
+  responses:
+    StandardError:
+      description: Standard error envelope
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NoContent:
+      description: No content
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+    Ok:
+      description: Generic OK response
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GenericObject' }
+    PaginatedOk:
+      description: Generic paginated response
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/X-Request-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PaginatedEnvelope' }

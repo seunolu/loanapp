@@ -1,0 +1,96 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: loanapp_postgres_prod_like
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loanapp
+    ports:
+      - '5432:5432'
+    volumes:
+      - loanapp_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: loanapp_redis_prod_like
+    ports:
+      - '6379:6379'
+    volumes:
+      - loanapp_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: loanapp_api_prod_like
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_VERSION: prod-like
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/loanapp?schema=public
+      REDIS_URL: redis://redis:6379
+      CORS_ALLOWED_ORIGINS: http://localhost:3001
+      CORS_ALLOW_CREDENTIALS: 'true'
+      REQUEST_BODY_LIMIT: 1mb
+      OTP_HASH_SECRET: otp-secret-change-me
+      JWT_ACCESS_SECRET: jwt-access-change-me
+      JWT_REFRESH_SECRET: jwt-refresh-change-me
+      REFRESH_TOKEN_HASH_SECRET: refresh-hash-change-me
+      ADMIN_JWT_ACCESS_SECRET: admin-jwt-access-change-me
+      ADMIN_JWT_REFRESH_SECRET: admin-jwt-refresh-change-me
+      ADMIN_INVITE_TOKEN_HASH_SECRET: invite-token-hash-change-me
+      ADMIN_REFRESH_TOKEN_HASH_SECRET: admin-refresh-token-hash-change-me
+      PAYSTACK_WEBHOOK_SECRET: paystack-webhook-secret-change-me
+      NOTIFICATIONS_ENABLED: 'false'
+      OTP_DEV_MODE: 'false'
+      PAYSTACK_DISABLE_SIGNATURE_VERIFY: 'false'
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: loanapp_admin_prod_like
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+    ports:
+      - '3001:3001'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3001/login || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  loanapp_pg_data:
+  loanapp_redis_data:

@@ -1,7 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchApplications, type LoanApplicationStatus } from '@/src/features/applications/api';
+import {
+  fetchApplications,
+  type LoanApplicationListResponse,
+  type LoanApplicationStatus
+} from '@/src/features/applications/api';
 
 export function useApplications(params: {
   limit: number;
@@ -9,9 +13,9 @@ export function useApplications(params: {
   status?: LoanApplicationStatus;
   query?: string;
 }) {
-  return useQuery({
+  return useQuery<LoanApplicationListResponse>({
     queryKey: ['loan-applications', params.limit, params.cursor ?? '', params.status ?? '', params.query ?? ''],
     queryFn: () => fetchApplications(params),
-    keepPreviousData: true
+    placeholderData: (previousData) => previousData
   });
 }

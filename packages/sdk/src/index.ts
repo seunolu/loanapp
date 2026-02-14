@@ -52,9 +52,7 @@ export class LoanAppSdkClient {
     body: paths['/auth/logout']['post']['requestBody']['content']['application/json'],
     headers: HeadersInput = {}
   ) {
-    return this.request<
-      paths['/auth/logout']['post']['responses'][200]['content']['application/json']
-    >('/auth/logout', 'POST', body, headers);
+    return this.request<void>('/auth/logout', 'POST', body, headers);
   }
 
   getMe(headers: HeadersInput = {}) {
@@ -130,6 +128,10 @@ export class LoanAppSdkClient {
       throw new Error(
         `SDK request failed: ${method} ${path} -> ${response.status} ${response.statusText}; payload=${JSON.stringify(errorPayload)}`
       );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
     }
 
     return (await response.json()) as T;

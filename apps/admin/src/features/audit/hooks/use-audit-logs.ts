@@ -1,10 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchAuditLogs, type AuditFilters } from '@/src/features/audit/api';
+import { fetchAuditLogs, type AuditFilters, type AuditLogsResponse } from '@/src/features/audit/api';
 
 export function useAuditLogs(filters: AuditFilters) {
-  return useQuery({
+  return useQuery<AuditLogsResponse>({
     queryKey: [
       'audit-logs',
       filters.limit,
@@ -19,6 +19,6 @@ export function useAuditLogs(filters: AuditFilters) {
       filters.query ?? ''
     ],
     queryFn: () => fetchAuditLogs(filters),
-    keepPreviousData: true
+    placeholderData: (previousData) => previousData
   });
 }

@@ -21,7 +21,6 @@ RUN pnpm -C apps/admin build
 FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /app/apps/admin/public ./apps/admin/public
 COPY --from=build /app/apps/admin/.next/standalone ./
 COPY --from=build /app/apps/admin/.next/static ./apps/admin/.next/static
 EXPOSE 3001

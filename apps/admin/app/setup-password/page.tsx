@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-export default function SetupPasswordPage() {
+function SetupPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenFromQuery = searchParams.get('token') ?? '';
@@ -76,5 +77,13 @@ export default function SetupPasswordPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">Loading...</main>}>
+      <SetupPasswordForm />
+    </Suspense>
   );
 }

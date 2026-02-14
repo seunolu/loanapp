@@ -37,9 +37,12 @@ jobs:
         run: pnpm -C apps/api build
       - name: Build Admin
         run: pnpm -C apps/admin build
+      - name: Build Borrower
+        run: pnpm -C apps/borrower build
       - name: Test
         run: pnpm test
       - name: Docker Build (prod-like)
         run: |
           docker build -f apps/api/Dockerfile .
           docker build -f apps/admin/Dockerfile .
+          docker build -f apps/borrower/Dockerfile .

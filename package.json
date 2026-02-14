@@ -13,7 +13,13 @@
     "sdk:build": "pnpm -C packages/sdk build",
     "admin:dev": "pnpm -C apps/admin dev",
     "admin:build": "pnpm -C apps/admin build",
-    "admin:lint": "pnpm -C apps/admin lint"
+    "admin:lint": "pnpm -C apps/admin lint",
+    "borrower:dev": "pnpm -C apps/borrower dev",
+    "borrower:build": "pnpm -C apps/borrower build",
+    "borrower:lint": "pnpm -C apps/borrower lint",
+    "mobile:start": "pnpm -C apps/mobile start",
+    "mobile:android": "pnpm -C apps/mobile android",
+    "mobile:typecheck": "pnpm -C apps/mobile typecheck"
   },
   "devDependencies": {
     "@redocly/cli": "^1.27.1",

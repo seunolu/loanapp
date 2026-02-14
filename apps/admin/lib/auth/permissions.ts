@@ -7,6 +7,7 @@ export type AdminPermission =
   | 'BORROWERS_MANAGE'
   | 'BORROWERS_NOTE'
   | 'BORROWERS_OVERRIDE'
+  | 'RISK_VIEW'
   | 'UNDERWRITING_VIEW'
   | 'UNDERWRITING_EDIT'
   | 'LOANS_VIEW'
@@ -29,6 +30,7 @@ const ROLE_PERMISSIONS: Record<string, AdminPermission[]> = {
     'ADMIN_USERS_MANAGE',
     'BORROWERS_VIEW',
     'BORROWERS_MANAGE',
+    'RISK_VIEW',
     'UNDERWRITING_VIEW',
     'UNDERWRITING_EDIT',
     'LOANS_VIEW',
@@ -50,6 +52,7 @@ const ROLE_PERMISSIONS: Record<string, AdminPermission[]> = {
     'ADMIN_USERS_MANAGE',
     'BORROWERS_VIEW',
     'BORROWERS_MANAGE',
+    'RISK_VIEW',
     'UNDERWRITING_VIEW',
     'UNDERWRITING_EDIT',
     'LOANS_VIEW',
@@ -67,6 +70,7 @@ const ROLE_PERMISSIONS: Record<string, AdminPermission[]> = {
   OPS: [
     'BORROWERS_VIEW',
     'BORROWERS_MANAGE',
+    'RISK_VIEW',
     'UNDERWRITING_VIEW',
     'UNDERWRITING_EDIT',
     'LOANS_VIEW',
@@ -87,9 +91,19 @@ const ROLE_PERMISSIONS: Record<string, AdminPermission[]> = {
     'LOANS_DISBURSE',
     'DISBURSEMENTS_MANAGE',
     'AUDIT_VIEW',
-    'AUDIT_EXPORT'
+    'AUDIT_EXPORT',
+    'RISK_VIEW'
   ],
-  VIEWER: ['REPORTS_VIEW', 'PAYMENTS_VIEW', 'BORROWERS_VIEW', 'UNDERWRITING_VIEW', 'LOANS_VIEW', 'AUDIT_VIEW', 'ADMIN_USERS_VIEW']
+  VIEWER: [
+    'REPORTS_VIEW',
+    'PAYMENTS_VIEW',
+    'BORROWERS_VIEW',
+    'UNDERWRITING_VIEW',
+    'LOANS_VIEW',
+    'AUDIT_VIEW',
+    'ADMIN_USERS_VIEW',
+    'RISK_VIEW'
+  ]
 };
 
 export function permissionsForRole(role?: string | null): AdminPermission[] {

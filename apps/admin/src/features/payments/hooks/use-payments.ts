@@ -1,7 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchPayments, fetchRepayments } from '@/src/features/payments/api';
+import {
+  fetchPayments,
+  fetchRepayments,
+  type CursorResponse,
+  type PaymentListItem,
+  type RepaymentListItem
+} from '@/src/features/payments/api';
 
 export type PaymentsTab = 'payments' | 'repayments';
 
@@ -13,7 +19,7 @@ export function usePayments(params: {
   from?: string;
   to?: string;
 }) {
-  return useQuery({
+  return useQuery<CursorResponse<PaymentListItem | RepaymentListItem>>({
     queryKey: [
       'payments-page',
       params.tab,
@@ -23,7 +29,7 @@ export function usePayments(params: {
       params.from ?? '',
       params.to ?? ''
     ],
-    queryFn: () =>
+    queryFn: async () =>
       params.tab === 'payments'
         ? fetchPayments({
             limit: params.limit,
@@ -39,6 +45,6 @@ export function usePayments(params: {
             from: params.from,
             to: params.to
           }),
-    keepPreviousData: true
+    placeholderData: (previousData) => previousData
   });
 }

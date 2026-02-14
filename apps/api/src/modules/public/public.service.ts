@@ -63,6 +63,43 @@ export class PublicService {
       }
     });
 
+    return this.toPublicConfig(lender);
+  }
+
+  async getPublicConfigBySlug(slugInput: string): Promise<PublicConfigResult> {
+    const slug = slugInput?.trim().toLowerCase() ?? '';
+    if (!slug) {
+      throw new BadRequestException({
+        code: 'BAD_REQUEST',
+        message: 'slug query parameter is required.',
+        details: { query: 'slug' }
+      });
+    }
+
+    const lender = await this.prisma.lender.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        status: true,
+        settings: true,
+        updatedAt: true
+      }
+    });
+    return this.toPublicConfig(lender);
+  }
+
+  private toPublicConfig(
+    lender:
+      | {
+          id: string;
+          slug: string;
+          status: LenderStatus;
+          settings: Prisma.JsonValue;
+          updatedAt: Date;
+        }
+      | null
+  ): PublicConfigResult {
     if (!lender || lender.status !== LenderStatus.ACTIVE) {
       throw new NotFoundException({
         code: 'NOT_FOUND',

@@ -1,15 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchJobs, retryJob, type JobStatus } from '@/src/features/jobs/api';
+import { fetchJobs, retryJob, type JobListResponse, type JobStatus } from '@/src/features/jobs/api';
 
 export function useJobs(params: { limit: number; cursor?: string; status?: JobStatus; type?: string }) {
   const queryClient = useQueryClient();
 
-  const jobsQuery = useQuery({
+  const jobsQuery = useQuery<JobListResponse>({
     queryKey: ['jobs', params.limit, params.cursor ?? '', params.status ?? '', params.type ?? ''],
     queryFn: () => fetchJobs(params),
-    keepPreviousData: true
+    placeholderData: (previousData) => previousData
   });
 
   const retryMutation = useMutation({

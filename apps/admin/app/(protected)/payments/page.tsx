@@ -5,6 +5,7 @@ import { RequirePermission } from '@/components/auth/require-permission';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PaymentsTable } from '@/src/components/payments/payments-table';
+import type { PaymentListItem, RepaymentListItem } from '@/src/features/payments/api';
 import { usePayments, type PaymentsTab } from '@/src/features/payments/hooks/use-payments';
 
 export default function PaymentsPage() {
@@ -111,7 +112,12 @@ export default function PaymentsPage() {
             Failed to load records.
           </div>
         )}
-        {paymentsQuery.data && <PaymentsTable items={paymentsQuery.data.items} tab={tab} />}
+        {paymentsQuery.data &&
+          (tab === 'payments' ? (
+            <PaymentsTable items={paymentsQuery.data.items as PaymentListItem[]} tab={tab} />
+          ) : (
+            <PaymentsTable items={paymentsQuery.data.items as RepaymentListItem[]} tab={tab} />
+          ))}
 
         <div className="flex items-center justify-end gap-2">
           <Button disabled={cursorHistory.length === 0 || paymentsQuery.isFetching} onClick={onPrev} variant="outline">

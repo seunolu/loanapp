@@ -1,4 +1,4 @@
-import { Controller, Get, Header, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Get, Header, HttpCode, HttpStatus, Query, Res } from '@nestjs/common';
 import { ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { PublicConfigResponseDto } from './dto/public-config-response.dto';
@@ -47,5 +47,18 @@ export class PublicController {
     res.setHeader('ETag', result.etag);
     return result.config;
   }
-}
 
+  @Get('config/by-slug')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'public, max-age=60')
+  @ApiOperation({ summary: 'Get tenant public config by lender slug (borrower-web helper)' })
+  @ApiOkResponse({ type: PublicConfigResponseDto })
+  async getConfigBySlug(
+    @Query('slug') slug: string,
+    @Res({ passthrough: true }) res: Response
+  ): Promise<PublicConfigResponseDto> {
+    const result = await this.publicService.getPublicConfigBySlug(slug);
+    res.setHeader('ETag', result.etag);
+    return result.config;
+  }
+}

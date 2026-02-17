@@ -7,8 +7,10 @@ import {
   setTenantSlug,
   type SessionTokens
 } from './storage';
+import { getApiBaseUrl } from './apiBaseUrl';
+import type { TenantSnapshot } from '../tenant/tenant-context';
 
-const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:3000').replace(/\/+$/, '');
+const API_BASE = getApiBaseUrl();
 const API_V1 = `${API_BASE}/api/v1`;
 
 type ApiErrorPayload = {
@@ -70,6 +72,107 @@ class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly responseBody: unknown
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+type ApiFetchTenant = Pick<TenantSnapshot, 'apiBaseUrl' | 'tenantSlug' | 'tenantId'>;
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function toJsonBody(init: RequestInit, headers: Headers): BodyInit | null | undefined {
+  const body = init.body;
+  if (body === undefined || body === null) {
+    return body;
+  }
+
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const isString = typeof body === 'string';
+  const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
+  const isArrayBuffer = body instanceof ArrayBuffer;
+  const isTypedArray = ArrayBuffer.isView(body);
+  const isSearchParams = body instanceof URLSearchParams;
+
+  if (isFormData || isString || isBlob || isArrayBuffer || isTypedArray || isSearchParams) {
+    return body;
+  }
+
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  return JSON.stringify(body);
+}
+
+function formatApiError(status: number, responseBody: unknown): string {
+  if (typeof responseBody === 'string' && responseBody.trim()) {
+    return `Request failed (${status}): ${responseBody}`;
+  }
+
+  if (responseBody && typeof responseBody === 'object') {
+    const candidate = (responseBody as { message?: string; error?: { message?: string } }).error?.message ??
+      (responseBody as { message?: string }).message;
+    if (candidate) {
+      return `Request failed (${status}): ${candidate}`;
+    }
+
+    return `Request failed (${status}): ${JSON.stringify(responseBody)}`;
+  }
+
+  return `Request failed (${status})`;
+}
+
+export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: RequestInit = {}): Promise<T> {
+  const baseUrl = trimTrailingSlashes(tenant.apiBaseUrl);
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const headers = new Headers(init.headers ?? {});
+  const body = toJsonBody(init, headers);
+
+  if (body !== undefined && body !== null && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (tenant.tenantSlug) {
+    headers.set('x-tenant-slug', tenant.tenantSlug);
+  }
+  if (tenant.tenantId) {
+    headers.set('x-tenant-id', tenant.tenantId);
+  }
+
+  const response = await fetch(`${baseUrl}${normalizedPath}`, {
+    ...init,
+    headers,
+    body
+  });
+
+  const rawBody = await response.text();
+  let parsedBody: unknown = undefined;
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      parsedBody = rawBody;
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiRequestError(formatApiError(response.status, parsedBody ?? rawBody), response.status, parsedBody ?? rawBody);
+  }
+
+  if (!rawBody) {
+    return undefined as T;
+  }
+
+  return parsedBody as T;
 }
 
 type RequestOptions = {

@@ -104,6 +104,18 @@ model Lender {
   riskEvents RiskEvent[]
 }
 
+model Tenant {
+  id               String                  @id @default(cuid())
+  slug             String                  @unique
+  name             String
+  lenderTitle      String?
+  apiBaseUrl       String?
+  theme            Json?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  loanApplications TenantLoanApplication[]
+}
+
 model Job {
   id          String    @id @default(cuid())
   type        JobType
@@ -534,6 +546,28 @@ model LoanApplication {
   @@index([lenderId, status])
   @@index([borrowerId, status])
   @@index([createdAt])
+}
+
+model TenantLoanApplication {
+  id               String                      @id @default(cuid())
+  tenantId         String
+  status           TenantLoanApplicationStatus @default(SUBMITTED)
+  fullName         String
+  phone            String
+  email            String?
+  dob              DateTime?
+  address          String?
+  amount           Int
+  tenorMonths      Int
+  purpose          String?
+  employmentStatus String?
+  incomeBand       String?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
 }
 
 model UnderwritingCase {
@@ -1007,6 +1041,14 @@ enum UnderwritingChecklistStatus {
   PENDING
   PASSED
   FAILED
+}
+
+enum TenantLoanApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
 }
 
 enum BlacklistEntryType {

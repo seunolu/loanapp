@@ -43,6 +43,8 @@ import { LoansModule } from './modules/loans/loans.module';
 import { MeModule } from './modules/me/me.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PublicModule } from './modules/public/public.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
+import { LoanApplicationsModule } from './modules/loan-applications/loan-applications.module';
 import { PlatformOnboardingModule } from './modules/platform-onboarding/platform-onboarding.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
@@ -83,6 +85,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     BankAccountsModule,
     MeModule,
     PublicModule,
+    TenantsModule,
+    LoanApplicationsModule,
     PlatformOnboardingModule,
     FilesModule,
     KycModule,

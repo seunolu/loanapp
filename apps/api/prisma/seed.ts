@@ -73,6 +73,48 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 async function main(): Promise<void> {
+  await prisma.tenant.upsert({
+    where: { slug: 'demo' },
+    update: {
+      name: 'Demo Lender',
+      lenderTitle: 'Demo',
+      apiBaseUrl: null
+    },
+    create: {
+      slug: 'demo',
+      name: 'Demo Lender',
+      lenderTitle: 'Demo',
+      apiBaseUrl: null
+    }
+  });
+
+  await prisma.lender.upsert({
+    where: { slug: 'demo' },
+    update: {
+      name: 'Demo Lender',
+      status: 'ACTIVE',
+      settings: {
+        branding: {
+          displayName: 'Demo Lender',
+          logoUrl: null,
+          primaryColor: '#0f766e'
+        }
+      } as Prisma.InputJsonValue
+    },
+    create: {
+      name: 'Demo Lender',
+      slug: 'demo',
+      status: 'ACTIVE',
+      settings: {
+        branding: {
+          displayName: 'Demo Lender',
+          logoUrl: null,
+          primaryColor: '#0f766e'
+        }
+      } as Prisma.InputJsonValue
+    }
+  });
+
   await prisma.lender.upsert({
     where: { id: DEFAULT_LENDER_ID },
     update: {

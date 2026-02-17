@@ -2,6 +2,7 @@
 import { HttpException, HttpStatus, Injectable, Scope, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AdminRole, AdminStatus } from '@prisma/client';
+import { compare } from 'bcryptjs';
 import type { JwtPayload } from 'jsonwebtoken';
 import { sign, verify } from 'jsonwebtoken';
 import { AuditService } from '../../common/audit/audit.service';
@@ -39,6 +40,10 @@ export class AdminAuthService {
   ) {}
 
   async login(input: AdminLoginDto): Promise<AdminAuthResponseDto> {
+    if (input.tenantId?.trim() || input.tenantSlug?.trim()) {
+      return this.loginTenantAdmin(input);
+    }
+
     const lenderId = await this.tenantContextService.resolveOptionalAnonymousLenderId();
     const email = input.email.trim().toLowerCase();
     const context = this.requestContextService.get();
@@ -105,6 +110,7 @@ export class AdminAuthService {
       admin: {
         id: admin.id,
         lenderId: admin.lenderId ?? null,
+        tenantId: null,
         email: admin.email,
         role: admin.role
       }
@@ -163,6 +169,7 @@ export class AdminAuthService {
       admin: {
         id: session.adminUser.id,
         lenderId: session.adminUser.lenderId ?? null,
+        tenantId: null,
         email: session.adminUser.email,
         role: session.adminUser.role
       }
@@ -280,6 +287,86 @@ export class AdminAuthService {
     });
 
     return { ok: true };
+  }
+
+  private async loginTenantAdmin(input: AdminLoginDto): Promise<AdminAuthResponseDto> {
+    const email = input.email.trim().toLowerCase();
+    const context = this.requestContextService.get();
+    await this.enforceAdminLoginRateLimit(email, context.ip);
+    const tenantId = await this.resolveTenantId(input);
+
+    const admin = await this.prisma.tenantAdminUser.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId,
+          email
+        }
+      }
+    });
+
+    if (!admin) {
+      throw this.unauthorized('Invalid admin credentials.');
+    }
+
+    const passwordOk = await compare(input.password, admin.passwordHash);
+    if (!passwordOk) {
+      throw this.unauthorized('Invalid admin credentials.');
+    }
+
+    const accessToken = sign(
+      {
+        typ: 'tenant_admin',
+        tenantId: admin.tenantId,
+        role: admin.role,
+        email: admin.email
+      },
+      this.getRequiredString('TENANT_ADMIN_JWT_SECRET'),
+      {
+        subject: admin.id,
+        expiresIn: `${this.configService.get('TENANT_ADMIN_JWT_TTL_SEC', { infer: true })}s`,
+        jwtid: randomUUID()
+      }
+    );
+
+    return {
+      accessToken,
+      refreshToken: '',
+      admin: {
+        id: admin.id,
+        lenderId: null,
+        tenantId: admin.tenantId,
+        email: admin.email,
+        role: admin.role
+      }
+    };
+  }
+
+  private async resolveTenantId(input: AdminLoginDto): Promise<string> {
+    const explicitTenantId = input.tenantId?.trim();
+    if (explicitTenantId) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: explicitTenantId },
+        select: { id: true }
+      });
+      if (!tenant) {
+        throw this.unauthorized('Invalid tenant context.');
+      }
+      return tenant.id;
+    }
+
+    const slug = input.tenantSlug?.trim().toLowerCase();
+    if (!slug) {
+      throw this.unauthorized('tenantSlug or tenantId is required for tenant admin login.');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: { id: true }
+    });
+    if (!tenant) {
+      throw this.unauthorized('Invalid tenant context.');
+    }
+    return tenant.id;
   }
 
   private verifyRefresh(token: string): AdminRefreshClaims {

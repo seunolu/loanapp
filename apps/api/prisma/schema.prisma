@@ -113,7 +113,23 @@ model Tenant {
   theme            Json?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
+  admins           TenantAdminUser[]
   loanApplications TenantLoanApplication[]
+}
+
+model TenantAdminUser {
+  id                   String                     @id @default(cuid())
+  tenantId             String
+  email                String
+  passwordHash         String
+  role                 TenantAdminRole           @default(TENANT_ADMIN)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanApplicationEvents TenantLoanApplicationEvent[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model Job {
@@ -565,9 +581,25 @@ model TenantLoanApplication {
   createdAt        DateTime                    @default(now())
   updatedAt        DateTime                    @updatedAt
   tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events           TenantLoanApplicationEvent[]
 
   @@index([tenantId])
   @@index([tenantId, createdAt])
+}
+
+model TenantLoanApplicationEvent {
+  id                String                      @id @default(cuid())
+  loanApplicationId String
+  adminId           String
+  fromStatus        TenantLoanApplicationStatus
+  toStatus          TenantLoanApplicationStatus
+  reason            String?
+  createdAt         DateTime                    @default(now())
+  loanApplication   TenantLoanApplication       @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  admin             TenantAdminUser             @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([loanApplicationId, createdAt])
+  @@index([adminId, createdAt])
 }
 
 model UnderwritingCase {
@@ -1049,6 +1081,12 @@ enum TenantLoanApplicationStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
+  DISBURSED
+}
+
+enum TenantAdminRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
 }
 
 enum BlacklistEntryType {

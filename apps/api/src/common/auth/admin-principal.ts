@@ -1,4 +1,11 @@
-export type AdminRoleName = 'PLATFORM_SUPER_ADMIN' | 'OWNER' | 'SUPER_ADMIN' | 'OPS' | 'FINANCE' | 'VIEWER';
+export type AdminRoleName =
+  | 'PLATFORM_SUPER_ADMIN'
+  | 'OWNER'
+  | 'SUPER_ADMIN'
+  | 'OPS'
+  | 'FINANCE'
+  | 'VIEWER'
+  | 'TENANT_ADMIN';
 
 export type AdminPrincipal = {
   adminId: string;

@@ -8,10 +8,13 @@ export class AdminDto {
   @ApiProperty({ nullable: true })
   lenderId!: string | null;
 
+  @ApiProperty({ nullable: true })
+  tenantId!: string | null;
+
   @ApiProperty()
   email!: string;
 
-  @ApiProperty({ enum: ['PLATFORM_SUPER_ADMIN', 'OWNER', 'SUPER_ADMIN', 'OPS', 'FINANCE', 'VIEWER'] })
+  @ApiProperty({ enum: ['PLATFORM_SUPER_ADMIN', 'OWNER', 'SUPER_ADMIN', 'OPS', 'FINANCE', 'VIEWER', 'TENANT_ADMIN'] })
   role!: AdminRoleName;
 }
 

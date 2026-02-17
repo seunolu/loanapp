@@ -21,6 +21,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
       ['JWT_REFRESH_SECRET', env.JWT_REFRESH_SECRET],
       ['ADMIN_JWT_ACCESS_SECRET', env.ADMIN_JWT_ACCESS_SECRET],
       ['ADMIN_JWT_REFRESH_SECRET', env.ADMIN_JWT_REFRESH_SECRET],
+      ['TENANT_ADMIN_JWT_SECRET', env.TENANT_ADMIN_JWT_SECRET],
       ['PAYSTACK_WEBHOOK_SECRET', env.PAYSTACK_WEBHOOK_SECRET],
       ['CORS_ALLOWED_ORIGINS', env.CORS_ALLOWED_ORIGINS]
     ];
@@ -39,6 +40,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
       ['REFRESH_TOKEN_HASH_SECRET', 'change-this-refresh-token-hash-secret'],
       ['ADMIN_JWT_ACCESS_SECRET', 'change-this-admin-access-secret'],
       ['ADMIN_JWT_REFRESH_SECRET', 'change-this-admin-refresh-secret'],
+      ['TENANT_ADMIN_JWT_SECRET', 'change-this-tenant-admin-jwt-secret'],
       ['ADMIN_INVITE_TOKEN_HASH_SECRET', 'change-this-admin-invite-token-hash-secret'],
       ['PAYSTACK_WEBHOOK_SECRET', 'change-this-paystack-webhook-secret']
     ];

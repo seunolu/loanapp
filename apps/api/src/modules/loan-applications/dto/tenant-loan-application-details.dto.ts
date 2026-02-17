@@ -7,8 +7,8 @@ export class TenantLoanApplicationDetailsDto {
   @ApiProperty()
   tenantId!: string;
 
-  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'] })
-  status!: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'DISBURSED'] })
+  status!: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DISBURSED';
 
   @ApiProperty()
   fullName!: string;
@@ -46,4 +46,3 @@ export class TenantLoanApplicationDetailsDto {
   @ApiProperty()
   updatedAt!: string;
 }
-

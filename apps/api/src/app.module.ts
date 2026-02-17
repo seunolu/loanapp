@@ -24,6 +24,7 @@ import { AdminBorrowersModule } from './modules/admin-borrowers/admin-borrowers.
 import { AdminAuditLogsModule } from './modules/admin-audit-logs/admin-audit-logs.module';
 import { AdminJobsModule } from './modules/admin-jobs/admin-jobs.module';
 import { AdminLendersModule } from './modules/admin-lenders/admin-lenders.module';
+import { AdminLoanApplicationsModule } from './modules/admin-loan-applications/admin-loan-applications.module';
 import { AdminLoansModule } from './modules/admin-loans/admin-loans.module';
 import { AdminMeModule } from './modules/admin-me/admin-me.module';
 import { AdminRolesModule } from './modules/admin-roles/admin-roles.module';
@@ -74,6 +75,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     AdminBorrowersModule,
     AdminAuditLogsModule,
     AdminLendersModule,
+    AdminLoanApplicationsModule,
     AdminLoansModule,
     AdminMeModule,
     AdminReportsModule,

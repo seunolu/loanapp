@@ -50,6 +50,8 @@ export const envSchema = z.object({
   ADMIN_LOGIN_RATE_LIMIT_IP_WINDOW_SEC: z.coerce.number().int().min(10).max(3600).default(600),
   ADMIN_LOGIN_RATE_LIMIT_EMAIL_MAX: z.coerce.number().int().min(1).max(200).default(10),
   ADMIN_LOGIN_RATE_LIMIT_EMAIL_WINDOW_SEC: z.coerce.number().int().min(10).max(3600).default(600),
+  TENANT_ADMIN_JWT_SECRET: z.string().min(16).default('change-this-tenant-admin-jwt-secret'),
+  TENANT_ADMIN_JWT_TTL_SEC: z.coerce.number().int().min(60).max(86400).default(3600),
   ADMIN_INVITE_SETUP_RATE_LIMIT_IP_MAX: z.coerce.number().int().min(1).max(500).default(20),
   ADMIN_INVITE_SETUP_RATE_LIMIT_IP_WINDOW_SEC: z.coerce.number().int().min(10).max(3600).default(600),
   REFRESH_RATE_LIMIT_IP_MAX: z.coerce.number().int().min(1).max(1000).default(120),

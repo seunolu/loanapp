@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient, type LedgerAccountType } from '@prisma/client';
+import { hash } from 'bcryptjs';
 import { DEFAULT_LENDER_ID, DEFAULT_LENDER_NAME, DEFAULT_LENDER_SLUG } from '../src/common/tenant/tenant.constants';
 
 const prisma = new PrismaClient();
@@ -73,7 +74,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 async function main(): Promise<void> {
-  await prisma.tenant.upsert({
+  const demoTenant = await prisma.tenant.upsert({
     where: { slug: 'demo' },
     update: {
       name: 'Demo Lender',
@@ -87,6 +88,32 @@ async function main(): Promise<void> {
       apiBaseUrl: null
     }
   });
+
+  const fallbackTenant = await prisma.tenant.findFirst({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true }
+  });
+  const tenantForAdmin = demoTenant ?? fallbackTenant;
+  if (tenantForAdmin) {
+    await prisma.tenantAdminUser.upsert({
+      where: {
+        tenantId_email: {
+          tenantId: tenantForAdmin.id,
+          email: 'admin@demo.com'
+        }
+      },
+      update: {
+        passwordHash: await hash('Admin123!', 10),
+        role: 'TENANT_ADMIN'
+      },
+      create: {
+        tenantId: tenantForAdmin.id,
+        email: 'admin@demo.com',
+        passwordHash: await hash('Admin123!', 10),
+        role: 'TENANT_ADMIN'
+      }
+    });
+  }
 
   await prisma.lender.upsert({
     where: { slug: 'demo' },

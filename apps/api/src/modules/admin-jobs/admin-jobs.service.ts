@@ -1,58 +1,60 @@
-import { ConflictException, Injectable, NotFoundException, Scope } from '@nestjs/common';
-import { JobStatus } from '@prisma/client';
-import { AuditService } from '../../common/audit/audit.service';
-import type { AdminPrincipal } from '../../common/auth/admin-principal';
+import { ForbiddenException, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import type { Job } from '@prisma/client';
+import type { TenantAdminPrincipal } from '../../common/auth/tenant-admin-principal';
 import { PrismaService } from '../../common/database/prisma.service';
 import { JobsService } from '../../common/jobs/jobs.service';
-import { RedisService } from '../../common/redis/redis.service';
-import type { AdminHealthResponseDto } from './dto/admin-health-response.dto';
+import type { JobItemDto } from './dto/job-item.dto';
 import type { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import type { ListJobsResponseDto } from './dto/list-jobs-response.dto';
-import type { RetryJobResponseDto } from './dto/retry-job-response.dto';
 
 @Injectable({ scope: Scope.REQUEST })
 export class AdminJobsService {
   constructor(
     private readonly jobsService: JobsService,
-    private readonly prisma: PrismaService,
-    private readonly redisService: RedisService,
-    private readonly auditService: AuditService
+    private readonly prisma: PrismaService
   ) {}
 
-  async listJobs(query: ListJobsQueryDto): Promise<ListJobsResponseDto> {
-    const { items, nextCursor } = await this.jobsService.listJobs({
-      status: query.status,
-      query: query.query,
+  async listJobs(principal: TenantAdminPrincipal, query: ListJobsQueryDto): Promise<ListJobsResponseDto> {
+    const requestedTenantId = query.tenantId;
+    if (requestedTenantId && requestedTenantId !== principal.tenantId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Cross-tenant job access is not allowed.',
+        details: null
+      });
+    }
+
+    const { items, nextCursor, total, page, pageSize } = await this.jobsService.listJobs({
+      status: query.status as any,
+      type: query.type as any,
+      query: query.q ?? query.query,
       from: query.from,
       to: query.to,
       cursor: query.cursor,
-      limit: query.limit
+      limit: query.take ?? 20,
+      page: query.page,
+      pageSize: query.pageSize,
+      tenantId: principal.tenantId
     });
 
     return {
-      items: items.map((item) => ({
-        id: item.id,
-        type: item.type,
-        key: item.key,
-        status: item.status,
-        attempts: item.attempts,
-        maxAttempts: item.maxAttempts,
-        runAt: item.runAt.toISOString(),
-        lockedAt: item.lockedAt ? item.lockedAt.toISOString() : null,
-        deadAt: item.deadAt ? item.deadAt.toISOString() : null,
-        lastError: item.lastError,
-        createdAt: item.createdAt.toISOString()
-      })),
-      nextCursor
+      items: items.map((item) => this.toDto(item)),
+      nextCursor,
+      total,
+      page,
+      pageSize
     };
   }
 
-  async retryJob(admin: AdminPrincipal, jobId: string): Promise<RetryJobResponseDto> {
-    const existing = await this.prisma.job.findUnique({
-      where: { id: jobId }
+  async getJobById(principal: TenantAdminPrincipal, id: string): Promise<JobItemDto> {
+    const row = await this.prisma.job.findFirst({
+      where: {
+        id,
+        tenantId: principal.tenantId
+      }
     });
 
-    if (!existing) {
+    if (!row) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
         message: 'Job not found.',
@@ -60,69 +62,64 @@ export class AdminJobsService {
       });
     }
 
-    if (existing.status !== JobStatus.FAILED && existing.status !== JobStatus.DEAD) {
-      throw new ConflictException({
-        code: 'CONFLICT',
-        message: 'Only FAILED or DEAD jobs can be retried.',
-        details: {
-          status: existing.status
-        }
-      });
-    }
+    return this.toDto(row);
+  }
 
-    const updated = await this.jobsService.retryJob(jobId);
-    if (!updated) {
+  async retryJob(principal: TenantAdminPrincipal, id: string): Promise<JobItemDto> {
+    const row = await this.prisma.job.findFirst({
+      where: { id, tenantId: principal.tenantId }
+    });
+    if (!row) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
         message: 'Job not found.',
         details: null
       });
     }
-
-    await this.auditService.write({
-      event: 'JOB_RETRIED',
-      actorType: 'ADMIN',
-      actorId: admin.adminId,
-      metadata: {
-        entityType: 'JOB',
-        entityId: updated.id,
-        beforeStatus: existing.status,
-        afterStatus: updated.status
-      }
-    });
-
-    return {
-      id: updated.id,
-      status: updated.status
-    };
+    const retried = await this.jobsService.retryJob(id);
+    if (!retried) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Job not found.',
+        details: null
+      });
+    }
+    return this.toDto(retried);
   }
 
-  async getAdminHealth(): Promise<AdminHealthResponseDto> {
-    let databaseUp = false;
-    let redisUp = false;
-
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      databaseUp = true;
-    } catch {
-      databaseUp = false;
+  async cancelJob(principal: TenantAdminPrincipal, id: string, reason?: string): Promise<void> {
+    const row = await this.prisma.job.findFirst({
+      where: { id, tenantId: principal.tenantId }
+    });
+    if (!row) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Job not found.',
+        details: null
+      });
     }
+    await this.jobsService.cancelJob(id, reason?.trim() || 'Cancelled by admin');
+  }
 
-    try {
-      const pong = await this.redisService.ping();
-      redisUp = pong === 'PONG';
-    } catch {
-      redisUp = false;
-    }
-
+  private toDto(item: Job): JobItemDto {
     return {
-      status: databaseUp && redisUp ? 'ok' : 'degraded',
-      database: {
-        status: databaseUp ? 'up' : 'down'
-      },
-      redis: {
-        status: redisUp ? 'up' : 'down'
-      }
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      tenantId: item.tenantId,
+      lenderId: item.lenderId,
+      dedupeKey: item.dedupeKey,
+      payload: (item.payload && typeof item.payload === 'object' ? item.payload : {}) as Record<string, unknown>,
+      attempts: item.attempts,
+      maxAttempts: item.maxAttempts,
+      runAt: item.runAt.toISOString(),
+      lockedAt: item.lockedAt ? item.lockedAt.toISOString() : null,
+      lockedBy: item.lockedBy,
+      lastError: item.lastError,
+      succeededAt: item.succeededAt ? item.succeededAt.toISOString() : null,
+      failedAt: item.failedAt ? item.failedAt.toISOString() : null,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString()
     };
   }
 }

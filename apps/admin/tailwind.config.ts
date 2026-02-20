@@ -5,7 +5,8 @@ const config: Config = {
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
-    './lib/**/*.{ts,tsx}'
+    './lib/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}'
   ],
   theme: {
     extend: {
@@ -21,12 +22,18 @@ const config: Config = {
         muted: 'hsl(var(--muted))',
         'muted-foreground': 'hsl(var(--muted-foreground))',
         destructive: 'hsl(var(--destructive))',
-        'destructive-foreground': 'hsl(var(--destructive-foreground))'
+        'destructive-foreground': 'hsl(var(--destructive-foreground))',
+        surface: 'hsl(var(--surface))',
+        'surface-2': 'hsl(var(--surface-2))',
+        ring: 'hsl(var(--ring))'
       },
       borderRadius: {
         lg: '0.75rem',
         md: '0.5rem',
         sm: '0.375rem'
+      },
+      boxShadow: {
+        soft: '0 1px 2px 0 hsl(var(--shadow) / 0.05), 0 6px 18px -12px hsl(var(--shadow) / 0.18)'
       }
     }
   },

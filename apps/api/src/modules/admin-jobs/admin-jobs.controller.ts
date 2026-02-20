@@ -1,70 +1,58 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AdminPrincipal } from '../../common/auth/admin-principal';
-import { CurrentAdmin } from '../../common/auth/current-admin.decorator';
-import { Roles } from '../../common/auth/roles.decorator';
-import { RolesGuard } from '../../common/auth/roles.guard';
-import { PermissionsGuard } from '../../common/rbac/permissions.guard';
-import { RequirePermissions } from '../../common/rbac/require-permissions.decorator';
-import { AdminAuthGuard } from '../admin-auth/guards/admin-auth.guard';
+import { CurrentTenantAdmin } from '../../common/auth/current-tenant-admin.decorator';
+import type { TenantAdminPrincipal } from '../../common/auth/tenant-admin-principal';
+import { TenantAdminAuthGuard } from '../admin-auth/guards/tenant-admin-auth.guard';
 import { AdminJobsService } from './admin-jobs.service';
-import { AdminHealthResponseDto } from './dto/admin-health-response.dto';
+import { JobItemDto } from './dto/job-item.dto';
 import { ListJobsQueryDto } from './dto/list-jobs-query.dto';
 import { ListJobsResponseDto } from './dto/list-jobs-response.dto';
-import { RetryJobResponseDto } from './dto/retry-job-response.dto';
+import { CancelJobDto } from './dto/cancel-job.dto';
 
 @ApiTags('AdminJobs')
 @ApiBearerAuth('bearer')
-@Controller('admin')
-@UseGuards(AdminAuthGuard, RolesGuard, PermissionsGuard)
+@Controller('admin/jobs')
+@UseGuards(TenantAdminAuthGuard)
 export class AdminJobsController {
   constructor(private readonly adminJobsService: AdminJobsService) {}
 
-  @Get('jobs')
-  @Roles('SUPER_ADMIN', 'OPS', 'FINANCE', 'VIEWER')
-  @ApiOperation({ summary: 'List jobs with optional status filter' })
-  @ApiOkResponse({
-    type: ListJobsResponseDto,
-    example: {
-      items: [
-        {
-          id: 'cmljob001',
-          type: 'OVERDUE_SCAN',
-          key: 'overdue_scan:2026-02-12',
-          status: 'PENDING',
-          attempts: 0,
-          maxAttempts: 5,
-          runAt: '2026-02-12T12:00:00.000Z',
-          lockedAt: null,
-          deadAt: null,
-          lastError: null,
-          createdAt: '2026-02-12T12:00:00.000Z'
-        }
-      ],
-      nextCursor: 'eyJjcmVhdGVkQXQiOiIyMDI2LTAyLTEyVDEyOjAwOjAwLjAwMFoiLCJpZCI6ImNtbGpvYjAwMSJ9'
-    }
-  })
-  async listJobs(@Query() query: ListJobsQueryDto): Promise<ListJobsResponseDto> {
-    return this.adminJobsService.listJobs(query);
+  @Get()
+  @ApiOperation({ summary: 'List jobs (tenant scoped)' })
+  @ApiOkResponse({ type: ListJobsResponseDto })
+  async listJobs(
+    @CurrentTenantAdmin() principal: TenantAdminPrincipal,
+    @Query() query: ListJobsQueryDto
+  ): Promise<ListJobsResponseDto> {
+    return this.adminJobsService.listJobs(principal, query);
   }
 
-  @Post('jobs/:id/retry')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermissions('JOBS_RETRY')
-  @ApiOperation({ summary: 'Retry a FAILED/DEAD job immediately' })
-  @ApiOkResponse({ type: RetryJobResponseDto })
-  async retryJob(
-    @CurrentAdmin() admin: AdminPrincipal,
+  @Get(':id')
+  @ApiOperation({ summary: 'Get job details (tenant scoped)' })
+  @ApiOkResponse({ type: JobItemDto })
+  async getJobById(
+    @CurrentTenantAdmin() principal: TenantAdminPrincipal,
     @Param('id') id: string
-  ): Promise<RetryJobResponseDto> {
-    return this.adminJobsService.retryJob(admin, id);
+  ): Promise<JobItemDto> {
+    return this.adminJobsService.getJobById(principal, id);
   }
 
-  @Get('health')
-  @Roles('SUPER_ADMIN', 'OPS', 'FINANCE', 'VIEWER')
-  @ApiOperation({ summary: 'Admin health check for DB and Redis' })
-  @ApiOkResponse({ type: AdminHealthResponseDto })
-  async health(): Promise<AdminHealthResponseDto> {
-    return this.adminJobsService.getAdminHealth();
+  @Post(':id/retry')
+  @ApiOperation({ summary: 'Retry job (tenant scoped)' })
+  async retryJob(
+    @CurrentTenantAdmin() principal: TenantAdminPrincipal,
+    @Param('id') id: string
+  ): Promise<JobItemDto> {
+    return this.adminJobsService.retryJob(principal, id);
+  }
+
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel job to DLQ (tenant scoped)' })
+  async cancelJob(
+    @CurrentTenantAdmin() principal: TenantAdminPrincipal,
+    @Param('id') id: string,
+    @Body() body: CancelJobDto
+  ): Promise<{ ok: true }> {
+    await this.adminJobsService.cancelJob(principal, id, body.reason);
+    return { ok: true };
   }
 }

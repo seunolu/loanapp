@@ -13,6 +13,33 @@ import type { TenantSnapshot } from '../tenant/tenant-context';
 const API_BASE = getApiBaseUrl();
 const API_V1 = `${API_BASE}/api/v1`;
 
+export function getApiBaseUrlSafe(): string {
+  return getApiBaseUrl();
+}
+
+export async function fetchJson<T>(
+  path: string,
+  input: { token?: string | null; method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown } = {}
+): Promise<T> {
+  const headers = new Headers();
+  headers.set('Content-Type', 'application/json');
+  if (input.token) {
+    headers.set('Authorization', `Bearer ${input.token}`);
+  }
+  const response = await fetch(`${API_V1}${path}`, {
+    method: input.method ?? 'GET',
+    headers,
+    body: input.body === undefined ? undefined : JSON.stringify(input.body)
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return (await response.json()) as T;
+}
+
 type ApiErrorPayload = {
   error?: {
     code?: string;
@@ -61,6 +88,17 @@ export type BorrowerMe = {
     state: string | null;
   };
   kycStatus: string;
+};
+
+export type IdentityVerificationStatus = 'PENDING' | 'VERIFIED' | 'FAILED' | 'MANUAL_REVIEW';
+export type IdentityVerificationView = {
+  id: string;
+  provider: string;
+  status: IdentityVerificationStatus;
+  matchScore: number | null;
+  riskFlags: unknown;
+  createdAt: string;
+  updatedAt: string;
 };
 
 class ApiError extends Error {
@@ -143,9 +181,6 @@ export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: Re
   }
   if (tenant.tenantSlug) {
     headers.set('x-tenant-slug', tenant.tenantSlug);
-  }
-  if (tenant.tenantId) {
-    headers.set('x-tenant-id', tenant.tenantId);
   }
 
   const response = await fetch(`${baseUrl}${normalizedPath}`, {
@@ -358,7 +393,249 @@ export async function getMe(): Promise<BorrowerMe> {
   return apiRequest<BorrowerMe>('/me', { requiresAuth: true });
 }
 
+export async function recordIdentityConsent(type: 'KYC_CONSENT' | 'DATA_PROCESSING'): Promise<{
+  id: string;
+  type: string;
+  acceptedAt: string;
+}> {
+  return apiRequest('/identity/consent', {
+    method: 'POST',
+    body: { type },
+    requiresAuth: true
+  });
+}
+
+export async function verifyIdentityBvn(bvn: string): Promise<IdentityVerificationView> {
+  return apiRequest('/identity/verify-bvn', {
+    method: 'POST',
+    body: { bvn },
+    requiresAuth: true
+  });
+}
+
+export async function getIdentityStatus(): Promise<IdentityVerificationView | null> {
+  return apiRequest('/identity/status', {
+    method: 'GET',
+    requiresAuth: true
+  });
+}
+
+export type BorrowerMandateStatus = 'PENDING' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
+
+export type BorrowerMandate = {
+  id: string;
+  loanId: string | null;
+  provider: string;
+  status: BorrowerMandateStatus;
+  maxAmount: string | null;
+  frequency: string | null;
+  nextDebitAt: string | null;
+  lastDebit: {
+    id: string;
+    status: string;
+    amount: string;
+    attemptedAt: string | null;
+    succeededAt: string | null;
+    failureReason: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function initiateRepayment(input: {
+  loanId: string;
+  amount: number;
+}): Promise<{ paymentIntentId: string; reference: string | null; authorizationUrl: string | null }> {
+  return apiRequest('/payments/repayments/initiate', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export async function setupMandate(input: {
+  loanId: string;
+  maxAmount?: number;
+  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+}): Promise<{ mandateId: string | null; paymentIntentId: string; reference: string | null; authorizationUrl: string | null }> {
+  return apiRequest('/mandates/setup', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export async function listMyMandates(): Promise<BorrowerMandate[]> {
+  return apiRequest('/mandates/me', {
+    method: 'GET',
+    requiresAuth: true
+  });
+}
+
 export async function hasActiveSession(): Promise<boolean> {
   const tokens = await getSessionTokens();
   return Boolean(tokens?.accessToken && tokens.refreshToken);
+}
+
+export type BorrowerCaseType = 'COMPLAINT' | 'DISPUTE' | 'REQUEST';
+export type BorrowerCaseStatus =
+  | 'OPEN'
+  | 'IN_REVIEW'
+  | 'AWAITING_BORROWER'
+  | 'ESCALATED'
+  | 'RESOLVED'
+  | 'REJECTED'
+  | 'CLOSED';
+export type BorrowerCasePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export type BorrowerCaseListItem = {
+  id: string;
+  type: BorrowerCaseType;
+  status: BorrowerCaseStatus;
+  priority: BorrowerCasePriority;
+  subject: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+};
+
+export type BorrowerCaseDetail = BorrowerCaseListItem & {
+  loanApplicationId: string | null;
+  repaymentId: string | null;
+  disbursementId: string | null;
+  messages: Array<{
+    id: string;
+    visibility: 'BORROWER';
+    message: string;
+    createdByAdminUserId: string | null;
+    createdByBorrowerId: string | null;
+    createdAt: string;
+  }>;
+  history: Array<{
+    id: string;
+    fromStatus: BorrowerCaseStatus | null;
+    toStatus: BorrowerCaseStatus;
+    reason: string | null;
+    createdAt: string;
+  }>;
+};
+
+export async function listBorrowerCases(input?: {
+  status?: BorrowerCaseStatus;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  items: BorrowerCaseListItem[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}> {
+  const query = new URLSearchParams();
+  if (input?.status) query.set('status', input.status);
+  if (input?.page) query.set('page', String(input.page));
+  if (input?.limit) query.set('limit', String(input.limit));
+  const suffix = query.toString();
+  return apiRequest(`/cases${suffix ? `?${suffix}` : ''}`, { requiresAuth: true });
+}
+
+export async function getBorrowerCase(id: string): Promise<BorrowerCaseDetail> {
+  return apiRequest(`/cases/${encodeURIComponent(id)}`, { requiresAuth: true });
+}
+
+export async function createBorrowerCase(input: {
+  type: BorrowerCaseType;
+  subject: string;
+  description: string;
+  loanApplicationId?: string;
+  repaymentId?: string;
+  disbursementId?: string;
+}): Promise<BorrowerCaseDetail> {
+  return apiRequest('/cases', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export async function addBorrowerCaseMessage(
+  id: string,
+  input: { message: string }
+): Promise<{
+  id: string;
+  message: string;
+  createdAt: string;
+}> {
+  return apiRequest(`/cases/${encodeURIComponent(id)}/messages`, {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export type BorrowerHardshipStatus = 'REQUESTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type BorrowerHardshipType = 'PAYMENT_PAUSE' | 'TENOR_EXTENSION' | 'RATE_REDUCTION';
+
+export type BorrowerHardshipRequest = {
+  id: string;
+  loanApplicationId: string;
+  type: BorrowerHardshipType;
+  reason: string;
+  proposedTenorMonths: number | null;
+  proposedRate: string | null;
+  pauseDays: number | null;
+  status: BorrowerHardshipStatus;
+  decisionNotes: string | null;
+  approvedByAdminId: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+export type BorrowerHardshipDetail = BorrowerHardshipRequest & {
+  history: Array<{
+    id: string;
+    fromStatus: BorrowerHardshipStatus;
+    toStatus: BorrowerHardshipStatus;
+    changedByAdminId: string | null;
+    createdAt: string;
+  }>;
+};
+
+export async function createHardshipRequest(input: {
+  loanApplicationId: string;
+  type: BorrowerHardshipType;
+  reason: string;
+  proposedTenorMonths?: number;
+  proposedRate?: number;
+  pauseDays?: number;
+}): Promise<BorrowerHardshipRequest> {
+  return apiRequest('/hardship', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export async function listHardshipRequests(input?: {
+  status?: BorrowerHardshipStatus;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  items: BorrowerHardshipRequest[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}> {
+  const query = new URLSearchParams();
+  if (input?.status) query.set('status', input.status);
+  if (input?.page) query.set('page', String(input.page));
+  if (input?.limit) query.set('limit', String(input.limit));
+  const suffix = query.toString();
+  return apiRequest(`/hardship${suffix ? `?${suffix}` : ''}`, { requiresAuth: true });
+}
+
+export async function getHardshipRequest(id: string): Promise<BorrowerHardshipDetail> {
+  return apiRequest(`/hardship/${encodeURIComponent(id)}`, { requiresAuth: true });
 }

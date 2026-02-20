@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AdminRole, AdminStatus } from '@prisma/client';
 import type { Env } from '../../common/config/env.schema';
@@ -13,15 +13,18 @@ export class AdminBootstrapService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService<Env, true>,
+    @Optional() @Inject(ConfigService) private readonly configService: ConfigService<Env, true> | undefined,
     private readonly rbacService: RbacService
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const email = this.configService.get('ADMIN_BOOTSTRAP_EMAIL', { infer: true })?.trim().toLowerCase();
-    const password = this.configService.get('ADMIN_BOOTSTRAP_PASSWORD', { infer: true });
-    const role = this.configService.get('ADMIN_BOOTSTRAP_ROLE', { infer: true });
-    const nodeEnv = this.configService.get('NODE_ENV', { infer: true });
+    const email = (this.configService?.get('ADMIN_BOOTSTRAP_EMAIL', { infer: true }) ?? process.env.ADMIN_BOOTSTRAP_EMAIL)
+      ?.trim()
+      .toLowerCase();
+    const password =
+      this.configService?.get('ADMIN_BOOTSTRAP_PASSWORD', { infer: true }) ?? process.env.ADMIN_BOOTSTRAP_PASSWORD;
+    const role = this.configService?.get('ADMIN_BOOTSTRAP_ROLE', { infer: true }) ?? process.env.ADMIN_BOOTSTRAP_ROLE;
+    const nodeEnv = this.configService?.get('NODE_ENV', { infer: true }) ?? process.env.NODE_ENV;
 
     if (!email || !password) {
       return;

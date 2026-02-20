@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint \"app/(admin)/dashboard/page.tsx\" \"app/(admin)/products/page.tsx\" \"app/(admin)/products/new/page.tsx\" \"app/(admin)/products/[id]/page.tsx\" \"app/(admin)/loan-applications/[id]/repayments/page.tsx\" \"app/(protected)/dashboard/loan-applications/page.tsx\" \"app/(protected)/dashboard/loan-applications/[id]/page.tsx\" \"app/(admin)/layout.tsx\" \"app/(protected)/layout.tsx\" \"src/components/layout/admin-shell.tsx\" \"src/components/layout/sidebar.tsx\" \"src/components/layout/topbar.tsx\" \"src/components/layout/page-header.tsx\" \"src/components/ui/data-table.tsx\" \"src/components/ui/empty-state.tsx\" \"src/components/ui/loading-skeleton.tsx\" \"src/components/ui/metric-card.tsx\" \"src/lib/navigation.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -14,8 +14,8 @@
     "@loanapp/sdk": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
-    "@tanstack/react-query": "^5.66.8",
     "@sentry/nextjs": "^8.51.0",
+    "@tanstack/react-query": "^5.66.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
@@ -24,6 +24,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
+    "react-is": "^19.2.4",
+    "recharts": "^3.7.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.24.1"

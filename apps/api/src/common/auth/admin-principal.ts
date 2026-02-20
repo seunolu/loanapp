@@ -5,11 +5,16 @@ export type AdminRoleName =
   | 'OPS'
   | 'FINANCE'
   | 'VIEWER'
+  | 'CREDIT_OFFICER'
+  | 'RISK_MANAGER'
+  | 'COLLECTIONS'
+  | 'SYSTEM'
   | 'TENANT_ADMIN';
 
 export type AdminPrincipal = {
   adminId: string;
   lenderId: string;
+  tenantId: string | null;
   email: string;
   role: AdminRoleName;
   sessionId: string;

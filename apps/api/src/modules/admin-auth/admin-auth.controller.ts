@@ -1,6 +1,7 @@
 import { Body, Controller, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiHeader, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminAuthService } from './admin-auth.service';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 import { AdminAuthResponseDto } from './dto/admin-auth-response.dto';
 import { AdminInviteValidateResponseDto } from './dto/admin-invite-validate-response.dto';
 import { AdminInviteValidateDto } from './dto/admin-invite-validate.dto';
@@ -15,6 +16,7 @@ export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
   @Post('login')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Admin login with email and password' })
   @ApiHeader({ name: 'X-Lender-Id', required: false, description: 'Tenant lender ID for tenant admin login' })
@@ -24,6 +26,7 @@ export class AdminAuthController {
   }
 
   @Post('refresh')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate admin refresh token' })
   @ApiHeader({
@@ -40,6 +43,7 @@ export class AdminAuthController {
   }
 
   @Post('logout')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke admin session' })
   @ApiHeader({
@@ -53,6 +57,7 @@ export class AdminAuthController {
   }
 
   @Post('invite/validate')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validate admin invite token' })
   @ApiOkResponse({ type: AdminInviteValidateResponseDto })
@@ -61,6 +66,7 @@ export class AdminAuthController {
   }
 
   @Post('setup-password')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Set admin password using invite token' })
   @ApiOkResponse({ type: AdminSetupPasswordResponseDto })

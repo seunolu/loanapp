@@ -104,14 +104,42 @@ async function main(): Promise<void> {
       },
       update: {
         passwordHash: await hash('Admin123!', 10),
-        role: 'TENANT_ADMIN'
+        role: 'SUPER_ADMIN'
       },
       create: {
         tenantId: tenantForAdmin.id,
         email: 'admin@demo.com',
         passwordHash: await hash('Admin123!', 10),
-        role: 'TENANT_ADMIN'
+        role: 'SUPER_ADMIN'
       }
+    });
+  }
+
+  // Guardrail: every tenant must have at least one SUPER_ADMIN.
+  const tenants = await prisma.tenant.findMany({
+    select: { id: true }
+  });
+  for (const tenant of tenants) {
+    const superAdminCount = await prisma.tenantAdminUser.count({
+      where: {
+        tenantId: tenant.id,
+        role: 'SUPER_ADMIN'
+      }
+    });
+    if (superAdminCount > 0) {
+      continue;
+    }
+    const firstAdmin = await prisma.tenantAdminUser.findFirst({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true }
+    });
+    if (!firstAdmin) {
+      continue;
+    }
+    await prisma.tenantAdminUser.update({
+      where: { id: firstAdmin.id },
+      data: { role: 'SUPER_ADMIN' }
     });
   }
 
@@ -160,13 +188,19 @@ async function main(): Promise<void> {
 
   for (const account of CHART_OF_ACCOUNTS) {
     await prisma.ledgerAccount.upsert({
-      where: { code: account.code },
+      where: {
+        tenantId_code: {
+          tenantId: '',
+          code: account.code
+        }
+      },
       update: {
         name: account.name,
         type: account.type,
         isActive: true
       },
       create: {
+        tenantId: '',
         code: account.code,
         name: account.name,
         type: account.type,

@@ -25,6 +25,7 @@ type AdminRefreshClaims = JwtPayload & {
   sub: string;
   sid: string;
   lid: string | null;
+  tenantId: string | null;
   typ: 'admin_refresh';
 };
 
@@ -103,6 +104,15 @@ export class AdminAuthService {
         email: admin.email
       }
     });
+    void this.auditService.log({
+      tenantId: admin.lenderId ?? null,
+      actorType: 'ADMIN',
+      actorId: admin.id,
+      action: 'ADMIN.LOGIN',
+      entity: 'ADMIN_USER',
+      entityId: admin.id,
+      metadata: { email: admin.email, role: admin.role }
+    });
 
     return {
       accessToken: tokens.accessToken,
@@ -162,6 +172,18 @@ export class AdminAuthService {
         newSessionId: rotated.sessionId
       }
     });
+    void this.auditService.log({
+      tenantId: session.adminUser.lenderId ?? null,
+      actorType: 'ADMIN',
+      actorId: session.adminUser.id,
+      action: 'ADMIN.TOKEN_REFRESH',
+      entity: 'ADMIN_USER',
+      entityId: session.adminUser.id,
+      metadata: {
+        sessionId: session.id,
+        newSessionId: rotated.sessionId
+      }
+    });
 
     return {
       accessToken: rotated.accessToken,
@@ -208,6 +230,15 @@ export class AdminAuthService {
       metadata: {
         sessionId: session.id
       }
+    });
+    void this.auditService.log({
+      tenantId: session.adminUser.lenderId ?? null,
+      actorType: 'ADMIN',
+      actorId: session.adminUserId,
+      action: 'ADMIN.LOGOUT',
+      entity: 'ADMIN_USER',
+      entityId: session.adminUserId,
+      metadata: { sessionId: session.id }
     });
   }
 
@@ -308,6 +339,10 @@ export class AdminAuthService {
       throw this.unauthorized('Invalid admin credentials.');
     }
 
+    if (!admin.isActive) {
+      throw this.unauthorized('Tenant admin account is suspended.');
+    }
+
     const passwordOk = await compare(input.password, admin.passwordHash);
     if (!passwordOk) {
       throw this.unauthorized('Invalid admin credentials.');
@@ -327,6 +362,16 @@ export class AdminAuthService {
         jwtid: randomUUID()
       }
     );
+
+    void this.auditService.log({
+      tenantId: admin.tenantId,
+      actorType: 'ADMIN',
+      actorId: admin.id,
+      action: 'ADMIN.LOGIN',
+      entity: 'TENANT_ADMIN_USER',
+      entityId: admin.id,
+      metadata: { email: admin.email, role: admin.role }
+    });
 
     return {
       accessToken,
@@ -376,6 +421,12 @@ export class AdminAuthService {
         throw new Error('Invalid payload');
       }
       if (payload.lid !== null && typeof payload.lid !== 'string') {
+        throw new Error('Invalid payload');
+      }
+      if (payload.tenantId !== null && typeof payload.tenantId !== 'string') {
+        throw new Error('Invalid payload');
+      }
+      if (payload.tenantId !== payload.lid) {
         throw new Error('Invalid payload');
       }
       return payload;
@@ -434,6 +485,7 @@ export class AdminAuthService {
         typ: 'admin',
         sid: session.id,
         lid: lenderId,
+        tenantId: lenderId,
         role,
         email
       },
@@ -452,6 +504,7 @@ export class AdminAuthService {
         typ: 'admin_refresh',
         sid: session.id,
         lid: lenderId,
+        tenantId: lenderId,
         role
       },
       this.getRequiredString('ADMIN_JWT_REFRESH_SECRET'),

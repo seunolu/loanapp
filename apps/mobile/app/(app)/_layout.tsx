@@ -1,42 +1,36 @@
-import { useQuery } from '@tanstack/react-query';
 import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
-
-import { getSelectedTenantConfig, hasActiveSession } from '../../src/lib/api';
+import { colors } from '../../src/ui/theme';
+import { useAuth } from '../../src/providers/auth-provider';
 
 export default function AppLayout() {
-  const sessionQuery = useQuery({
-    queryKey: ['session', 'exists'],
-    queryFn: () => hasActiveSession()
-  });
-  const tenantQuery = useQuery({
-    queryKey: ['tenant', 'selected'],
-    queryFn: () => getSelectedTenantConfig(),
-    retry: false
-  });
-
-  if (sessionQuery.isLoading || tenantQuery.isLoading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
-  if (!tenantQuery.data) {
-    return <Redirect href="/tenant" />;
-  }
-
-  if (!sessionQuery.data) {
-    return <Redirect href="/auth/login" />;
+  const { isAuthed, isLoading } = useAuth();
+  if (!isLoading && !isAuthed) {
+    return <Redirect href={'/welcome' as any} />;
   }
 
   return (
-    <Tabs screenOptions={{ headerShown: true }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8
+        }
+      }}
+    >
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="apply" options={{ title: 'Apply' }} />
-      <Tabs.Screen name="loan" options={{ title: 'Loan' }} />
+      <Tabs.Screen name="loans" options={{ title: 'Loans' }} />
       <Tabs.Screen name="repay" options={{ title: 'Repay' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen name="apply" options={{ href: null }} />
+      <Tabs.Screen name="loan" options={{ href: null }} />
+      <Tabs.Screen name="support" options={{ href: null }} />
+      <Tabs.Screen name="hardship" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -9,14 +9,77 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import type { Env } from './common/config/env.schema';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { StripTenantIdInterceptor } from './common/interceptors/strip-tenant-id.interceptor';
+import { PrismaService } from './common/database/prisma.service';
+import { RedisService } from './common/redis/redis.service';
 import { initApiSentry } from './common/sentry/sentry';
 import type { RequestWithId } from './common/types/request-with-id';
+
+type OriginMatcher = {
+  raw: string;
+  test: (origin: string) => boolean;
+};
 
 function parseAllowedOrigins(csv: string): string[] {
   return csv
     .split(',')
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildOriginMatchers(entries: string[]): { wildcard: boolean; matchers: OriginMatcher[] } {
+  let wildcard = false;
+  const matchers: OriginMatcher[] = [];
+
+  for (const entry of entries) {
+    if (entry === '*') {
+      wildcard = true;
+      continue;
+    }
+
+    // Example: http://192.168.0.0/16
+    const cidrMatch = entry.match(/^(https?):\/\/(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/i);
+    if (cidrMatch) {
+      const [, scheme, ip, maskBitsRaw] = cidrMatch;
+      const octets = ip.split('.').map(Number);
+      const maskBits = Number(maskBitsRaw);
+      if (octets.length === 4 && maskBits >= 8 && maskBits <= 24) {
+        const fixedOctetCount = Math.floor(maskBits / 8);
+        const prefix = octets.slice(0, fixedOctetCount).map((part) => escapeRegex(String(part))).join('\\.');
+        const remaining = 4 - fixedOctetCount;
+        const variable =
+          remaining > 0
+            ? `(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){${remaining}}`
+            : '';
+        const regex = new RegExp(`^${scheme}:\\/\\/${prefix}${variable}(?::\\d{1,5})?$`, 'i');
+        matchers.push({
+          raw: entry,
+          test: (origin) => regex.test(origin)
+        });
+        continue;
+      }
+    }
+
+    if (entry.includes('*')) {
+      const wildcardRegex = new RegExp(`^${entry.split('*').map(escapeRegex).join('.*')}$`, 'i');
+      matchers.push({
+        raw: entry,
+        test: (origin) => wildcardRegex.test(origin)
+      });
+      continue;
+    }
+
+    matchers.push({
+      raw: entry,
+      test: (origin) => origin === entry
+    });
+  }
+
+  return { wildcard, matchers };
 }
 
 async function bootstrap(): Promise<void> {
@@ -33,15 +96,42 @@ async function bootstrap(): Promise<void> {
   const apiPrefix = configService.get('API_PREFIX', { infer: true });
   const bodyLimit = configService.get('REQUEST_BODY_LIMIT', { infer: true });
   const corsCredentials = configService.get('CORS_ALLOW_CREDENTIALS', { infer: true });
-  const corsOrigins = parseAllowedOrigins(configService.get('CORS_ALLOWED_ORIGINS', { infer: true }));
+  const corsOriginsCsv =
+    configService.get('CORS_ORIGINS', { infer: true }) || configService.get('CORS_ALLOWED_ORIGINS', { infer: true });
+  const corsOrigins = parseAllowedOrigins(corsOriginsCsv);
+  const corsOriginRules = buildOriginMatchers(corsOrigins);
 
-  if (nodeEnv === 'production' && (corsOrigins.length === 0 || corsOrigins.includes('*'))) {
-    throw new Error('CORS_ALLOWED_ORIGINS must be explicit (no wildcard) in production.');
+  if (nodeEnv === 'production' && (corsOrigins.length === 0 || corsOriginRules.wildcard)) {
+    throw new Error('CORS_ORIGINS must be explicit (no wildcard) in production.');
   }
 
   app.use(
     helmet({
-      crossOriginResourcePolicy: false
+      crossOriginResourcePolicy: false,
+      contentSecurityPolicy:
+        nodeEnv === 'production'
+          ? {
+              useDefaults: true,
+              directives: {
+                "default-src": ["'self'"],
+                "script-src": ["'self'", "'unsafe-inline'"],
+                "style-src": ["'self'", "'unsafe-inline'"],
+                "img-src": ["'self'", 'data:', 'https:'],
+                "font-src": ["'self'", 'https:', 'data:']
+              }
+            }
+          : false,
+      hsts:
+        nodeEnv === 'production'
+          ? {
+              maxAge: 15552000,
+              includeSubDomains: true,
+              preload: false
+            }
+          : false,
+      noSniff: true,
+      frameguard: { action: 'deny' },
+      referrerPolicy: { policy: 'no-referrer' }
     })
   );
   app.enableCors({
@@ -51,12 +141,12 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      if (nodeEnv !== 'production' && corsOrigins.includes('*')) {
+      if (nodeEnv !== 'production' && corsOriginRules.wildcard) {
         callback(null, true);
         return;
       }
 
-      if (corsOrigins.includes(origin)) {
+      if (corsOriginRules.matchers.some((matcher) => matcher.test(origin))) {
         callback(null, true);
         return;
       }
@@ -66,9 +156,13 @@ async function bootstrap(): Promise<void> {
     credentials: corsCredentials
   });
 
-  const webhookPathPrefix = `/${apiPrefix}/webhooks/paystack`;
+  const webhookPathPrefixes = [
+    `/${apiPrefix}/webhooks/paystack`,
+    `/${apiPrefix}/webhooks/payments`,
+    `/${apiPrefix}/payments/webhooks/paystack`
+  ];
   const captureRawBody = (req: RequestWithId, buffer: Buffer): void => {
-    if (req.originalUrl.startsWith(webhookPathPrefix)) {
+    if (webhookPathPrefixes.some((prefix) => req.originalUrl.startsWith(prefix))) {
       req.rawBody = Buffer.from(buffer);
     }
   };
@@ -87,17 +181,19 @@ async function bootstrap(): Promise<void> {
     })
   );
 
-  app.setGlobalPrefix(apiPrefix, { exclude: ['health'] });
+  app.setGlobalPrefix(apiPrefix, { exclude: ['health', 'ready', 'metrics'] });
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true
+      transform: true,
+      transformOptions: { enableImplicitConversion: true }
     })
   );
 
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
+  app.useGlobalInterceptors(new StripTenantIdInterceptor());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('LoanApp API')
@@ -117,6 +213,32 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
   const port = configService.get('PORT', { infer: true });
+  const prisma = app.get(PrismaService);
+  const redis = app.get(RedisService, { strict: false });
+  const appLogger = app.get(Logger);
+
+  const [dbConnected, redisConnected] = await Promise.all([
+    prisma
+      .isHealthy()
+      .then((ok) => ok)
+      .catch(() => false),
+    redis
+      ? redis
+          .ping()
+          .then(() => true)
+          .catch(() => false)
+      : Promise.resolve(false)
+  ]);
+
+  appLogger.log({
+    service: 'loanapp-api',
+    environment: nodeEnv,
+    version: configService.get('APP_VERSION', { infer: true }),
+    nodeVersion: process.version,
+    redisConnected,
+    dbConnected,
+    timestamp: new Date().toISOString()
+  });
   await app.listen(port);
 }
 

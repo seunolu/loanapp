@@ -194,6 +194,21 @@ export class AdminBorrowersService {
       });
     }
 
+    await this.auditService.log({
+      tenantId: admin.lenderId,
+      actorType: 'ADMIN',
+      actorId: admin.adminId,
+      actorRole: admin.role,
+      action: 'DATA_ACCESS.READ',
+      entity: 'Borrower',
+      entityId: borrower.id,
+      metadata: {
+        endpoint: 'admin/borrowers/:id',
+        resourceType: 'Borrower',
+        resourceId: borrower.id
+      }
+    });
+
     return {
       id: borrower.id,
       lenderId: borrower.lenderId,

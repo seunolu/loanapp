@@ -8,8 +8,17 @@ class AdminLoanApplicationListItemDto {
   @ApiProperty()
   tenantId!: string;
 
-  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'DISBURSED'] })
-  status!: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'DISBURSED';
+  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'REQUESTED_DOCUMENTS', 'APPROVED', 'READY_FOR_DISBURSEMENT', 'DISBURSED', 'OVERDUE', 'WRITTEN_OFF', 'SETTLED', 'REPAID', 'DEFAULTED', 'REJECTED'] })
+  status!: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'REQUESTED_DOCUMENTS' | 'APPROVED' | 'READY_FOR_DISBURSEMENT' | 'DISBURSED' | 'OVERDUE' | 'WRITTEN_OFF' | 'SETTLED' | 'REPAID' | 'DEFAULTED' | 'REJECTED';
+
+  @ApiProperty({ enum: ['CURRENT', 'OVERDUE', 'CHARGED_OFF'] })
+  delinquencyStatus!: 'CURRENT' | 'OVERDUE' | 'CHARGED_OFF';
+
+  @ApiProperty()
+  daysPastDue!: number;
+
+  @ApiProperty()
+  overdueAmountCents!: string;
 
   @ApiProperty()
   fullName!: string;
@@ -29,11 +38,5 @@ class AdminLoanApplicationListItemDto {
 
 export class AdminListLoanApplicationsResponseDto {
   @ApiProperty({ type: [AdminLoanApplicationListItemDto] })
-  items!: Array<
-    Pick<
-      AdminLoanApplicationDetailsDto,
-      'id' | 'tenantId' | 'status' | 'fullName' | 'phone' | 'amount' | 'tenorMonths' | 'createdAt'
-    >
-  >;
+  items!: AdminLoanApplicationListItemDto[];
 }
-

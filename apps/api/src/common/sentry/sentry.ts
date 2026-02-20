@@ -28,11 +28,22 @@ export function captureApiException(exception: unknown, req: RequestWithId): voi
     scope.setTag('requestId', req.requestId ?? req.header('x-request-id') ?? 'unknown');
     scope.setTag('route', req.route?.path ?? req.originalUrl ?? 'unknown');
 
-    const user = req.user as { lenderId?: string } | undefined;
-    const lenderIdFromHeader = req.header('x-lender-id');
-    const lenderId = user?.lenderId ?? lenderIdFromHeader;
-    if (lenderId) {
-      scope.setTag('lenderId', lenderId);
+    const user = req.user as
+      | { tenantId?: string; adminId?: string; borrowerId?: string; role?: string }
+      | undefined;
+    if (user?.tenantId) {
+      scope.setTag('tenantId', user.tenantId);
+    }
+    const actorType = user?.adminId ? 'TENANT_ADMIN' : user?.borrowerId ? 'BORROWER' : user ? 'SYSTEM' : null;
+    if (actorType) {
+      scope.setTag('actorType', actorType);
+    }
+    const actorId = user?.adminId ?? user?.borrowerId;
+    if (actorId) {
+      scope.setTag('actorId', actorId);
+    }
+    if (user?.role) {
+      scope.setTag('actorRole', user.role);
     }
 
     Sentry.captureException(exception);

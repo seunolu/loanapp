@@ -14,7 +14,21 @@ export class AdminDto {
   @ApiProperty()
   email!: string;
 
-  @ApiProperty({ enum: ['PLATFORM_SUPER_ADMIN', 'OWNER', 'SUPER_ADMIN', 'OPS', 'FINANCE', 'VIEWER', 'TENANT_ADMIN'] })
+  @ApiProperty({
+    enum: [
+      'PLATFORM_SUPER_ADMIN',
+      'OWNER',
+      'SUPER_ADMIN',
+      'OPS',
+      'FINANCE',
+      'VIEWER',
+      'CREDIT_OFFICER',
+      'RISK_MANAGER',
+      'COLLECTIONS',
+      'SYSTEM',
+      'TENANT_ADMIN'
+    ]
+  })
   role!: AdminRoleName;
 }
 

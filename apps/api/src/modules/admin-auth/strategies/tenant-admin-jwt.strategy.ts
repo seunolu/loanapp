@@ -1,28 +1,32 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { TenantAdminPrincipal } from '../../../common/auth/tenant-admin-principal';
 import type { Env } from '../../../common/config/env.schema';
 import { PrismaService } from '../../../common/database/prisma.service';
-import type { TenantAdminPrincipal } from '../../../common/auth/tenant-admin-principal';
 
 type TenantAdminAccessPayload = {
   sub?: string;
   typ?: string;
   tenantId?: string;
-  role?: 'SUPER_ADMIN' | 'TENANT_ADMIN';
+  role?: 'CREDIT_OFFICER' | 'RISK_MANAGER' | 'OPS' | 'COLLECTIONS' | 'SYSTEM' | 'SUPER_ADMIN' | 'TENANT_ADMIN';
   email?: string;
 };
 
 @Injectable()
 export class TenantAdminJwtStrategy extends PassportStrategy(Strategy, 'tenant-admin-jwt') {
   constructor(
-    configService: ConfigService<Env, true>,
+    @Optional() @Inject(ConfigService) configService: ConfigService<Env, true> | undefined,
     private readonly prisma: PrismaService
   ) {
+    const jwtSecret =
+      configService?.get('TENANT_ADMIN_JWT_SECRET', { infer: true }) ??
+      process.env.TENANT_ADMIN_JWT_SECRET ??
+      'change-this-tenant-admin-jwt-secret';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get('TENANT_ADMIN_JWT_SECRET', { infer: true }),
+      secretOrKey: jwtSecret,
       ignoreExpiration: false
     });
   }
@@ -34,7 +38,7 @@ export class TenantAdminJwtStrategy extends PassportStrategy(Strategy, 'tenant-a
       !payload.sub ||
       typeof payload.tenantId !== 'string' ||
       !payload.tenantId ||
-      (payload.role !== 'SUPER_ADMIN' && payload.role !== 'TENANT_ADMIN') ||
+      !this.isValidRole(payload.role) ||
       typeof payload.email !== 'string'
     ) {
       throw new UnauthorizedException({
@@ -46,7 +50,7 @@ export class TenantAdminJwtStrategy extends PassportStrategy(Strategy, 'tenant-a
 
     const admin = await this.prisma.tenantAdminUser.findUnique({
       where: { id: payload.sub },
-      select: { id: true, tenantId: true, email: true, role: true }
+      select: { id: true, tenantId: true, email: true, role: true, isActive: true }
     });
 
     if (!admin) {
@@ -65,6 +69,14 @@ export class TenantAdminJwtStrategy extends PassportStrategy(Strategy, 'tenant-a
       });
     }
 
+    if (!admin.isActive) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Tenant admin account is suspended.',
+        details: null
+      });
+    }
+
     return {
       adminId: admin.id,
       tenantId: admin.tenantId,
@@ -72,5 +84,16 @@ export class TenantAdminJwtStrategy extends PassportStrategy(Strategy, 'tenant-a
       role: admin.role
     };
   }
-}
 
+  private isValidRole(role: unknown): role is NonNullable<TenantAdminAccessPayload['role']> {
+    return (
+      role === 'CREDIT_OFFICER' ||
+      role === 'RISK_MANAGER' ||
+      role === 'OPS' ||
+      role === 'COLLECTIONS' ||
+      role === 'SYSTEM' ||
+      role === 'SUPER_ADMIN' ||
+      role === 'TENANT_ADMIN'
+    );
+  }
+}

@@ -1,51 +1,38 @@
-import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-
-import { getMe, getSelectedTenantConfig, logout } from '../../src/lib/api';
+import { Link } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+import { Badge } from '../../src/ui/Badge';
+import { Button } from '../../src/ui/Button';
+import { Card } from '../../src/ui/Card';
+import { Screen } from '../../src/ui/Screen';
+import { SectionHeader } from '../../src/ui/SectionHeader';
+import { colors, spacing, typography } from '../../src/ui/theme';
 
 export default function HomeScreen() {
-  const meQuery = useQuery({
-    queryKey: ['session', 'me'],
-    queryFn: () => getMe()
-  });
-  const tenantQuery = useQuery({
-    queryKey: ['tenant', 'selected'],
-    queryFn: () => getSelectedTenantConfig()
-  });
-
-  const displayName =
-    meQuery.data?.profile?.firstName && meQuery.data.profile?.lastName
-      ? `${meQuery.data.profile.firstName} ${meQuery.data.profile.lastName}`
-      : meQuery.data?.phone ?? 'Borrower';
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.value}>{displayName}</Text>
-        <Text style={styles.label}>Lender</Text>
-        <Text style={styles.value}>{tenantQuery.data?.branding.displayName ?? '-'}</Text>
-        <Pressable
-          onPress={async () => {
-            await logout();
-            router.replace('/auth/login');
-          }}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>Logout</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+    <Screen>
+      <SectionHeader title="Good morning" subtitle="Here is your portfolio snapshot." />
+      <Card>
+        <Text style={styles.amount}>NGN 0.00</Text>
+        <Text style={styles.muted}>Outstanding balance</Text>
+        <Badge label="No active delinquency" tone="success" />
+      </Card>
+      <Card>
+        <SectionHeader title="Quick actions" />
+        <View style={styles.actions}>
+          <Link href={'/loans' as any} asChild>
+            <Button label="Apply for loan" />
+          </Link>
+          <Link href={'/repay' as any} asChild>
+            <Button label="Repay now" variant="secondary" />
+          </Link>
+        </View>
+      </Card>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f5f7f8' },
-  container: { flex: 1, padding: 20, gap: 12 },
-  title: { fontSize: 24, fontWeight: '700', color: '#0b1720' },
-  label: { color: '#4b5563' },
-  value: { fontSize: 18, fontWeight: '600', color: '#0b1720' },
-  button: { marginTop: 12, backgroundColor: '#0b1720', borderRadius: 8, padding: 12, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '600' }
+  amount: { ...typography.display, color: colors.text },
+  muted: { ...typography.body, color: colors.textMuted },
+  actions: { gap: spacing.sm }
 });

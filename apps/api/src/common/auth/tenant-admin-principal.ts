@@ -1,4 +1,11 @@
-export type TenantAdminRoleName = 'SUPER_ADMIN' | 'TENANT_ADMIN';
+export type TenantAdminRoleName =
+  | 'CREDIT_OFFICER'
+  | 'RISK_MANAGER'
+  | 'OPS'
+  | 'COLLECTIONS'
+  | 'SYSTEM'
+  | 'SUPER_ADMIN'
+  | 'TENANT_ADMIN';
 
 export type TenantAdminPrincipal = {
   adminId: string;
@@ -6,4 +13,3 @@ export type TenantAdminPrincipal = {
   email: string;
   role: TenantAdminRoleName;
 };
-

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -12,18 +12,20 @@ type BorrowerAccessPayload = {
   sid?: string;
   typ?: string;
   lid?: string;
+  tenantId?: string;
   phone?: string;
 };
 
 @Injectable()
 export class BorrowerJwtStrategy extends PassportStrategy(Strategy, 'borrower-jwt') {
   constructor(
-    configService: ConfigService<Env, true>,
+    @Optional() @Inject(ConfigService) configService: ConfigService<Env, true> | undefined,
     private readonly prisma: PrismaService
   ) {
+    const jwtSecret = configService?.get('JWT_ACCESS_SECRET', { infer: true }) ?? process.env.JWT_ACCESS_SECRET ?? 'change-this-access-secret';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get('JWT_ACCESS_SECRET', { infer: true }),
+      secretOrKey: jwtSecret,
       issuer: BORROWER_JWT_ISSUER,
       audience: BORROWER_JWT_AUDIENCE,
       ignoreExpiration: false
@@ -38,7 +40,9 @@ export class BorrowerJwtStrategy extends PassportStrategy(Strategy, 'borrower-jw
       typeof payload.sid !== 'string' ||
       !payload.sid ||
       typeof payload.lid !== 'string' ||
-      !payload.lid
+      !payload.lid ||
+      typeof payload.tenantId !== 'string' ||
+      !payload.tenantId
     ) {
       throw new UnauthorizedException({
         code: 'UNAUTHORIZED',
@@ -56,6 +60,7 @@ export class BorrowerJwtStrategy extends PassportStrategy(Strategy, 'borrower-jw
       !session ||
       session.borrowerId !== payload.sub ||
       session.borrower.lenderId !== payload.lid ||
+      session.borrower.lenderId !== payload.tenantId ||
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now()
     ) {
@@ -78,6 +83,7 @@ export class BorrowerJwtStrategy extends PassportStrategy(Strategy, 'borrower-jw
     return {
       borrowerId: session.borrower.id,
       lenderId: session.borrower.lenderId,
+      tenantId: session.borrower.lenderId,
       phone: session.borrower.phone,
       sessionId: session.id
     };

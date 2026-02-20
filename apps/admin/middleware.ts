@@ -3,8 +3,13 @@ import type { NextRequest } from 'next/server';
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '@/lib/api/constants';
 
-const PUBLIC_PATHS = ['/login', '/setup-password'];
+const PUBLIC_PATHS = ['/login', '/setup-password', '/select-tenant'];
+const PUBLIC_PREFIXES = ['/dashboard', '/products', '/disbursements', '/loan-applications'];
 const REFRESH_ATTEMPT_HEADER = 'x-auth-refresh-attempt';
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 function isTokenExpired(token: string): boolean {
   try {
@@ -61,7 +66,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/favicon') ||
-    PUBLIC_PATHS.includes(pathname)
+    isPublicPath(pathname)
   ) {
     return NextResponse.next();
   }

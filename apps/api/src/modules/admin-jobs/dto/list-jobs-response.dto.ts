@@ -7,4 +7,13 @@ export class ListJobsResponseDto {
 
   @ApiProperty({ nullable: true })
   nextCursor!: string | null;
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  page!: number;
+
+  @ApiProperty()
+  pageSize!: number;
 }

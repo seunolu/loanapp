@@ -11,46 +11,33 @@ export class JobsSchedulerService {
   async scheduleDaily(referenceDate = new Date()): Promise<void> {
     const day = this.dayKey(referenceDate);
     const runAt = this.twoAmUtc(referenceDate);
-    const targetDay = this.previousDayKey(referenceDate);
-    const targetDate = `${targetDay}T00:00:00.000Z`;
 
     await this.jobsService.createJob({
-      type: JobType.OVERDUE_SCAN,
-      key: `overdue_scan:${day}`,
+      type: JobType.LEDGER_RECONCILE,
+      key: `ledgerReconcile:daily:${day}`,
+      payload: { day, date: `${day}T00:00:00.000Z` },
+      runAt
+    });
+
+    await this.jobsService.createJob({
+      type: JobType.ACCRUE_INTEREST,
+      key: `accrueInterest:daily:${day}`,
+      payload: { day, asOfDate: `${day}T00:00:00.000Z` },
+      runAt
+    });
+
+    await this.jobsService.createJob({
+      type: JobType.RISK_REEVALUATION,
+      key: `riskReevaluation:daily:${day}`,
       payload: { day },
       runAt
     });
 
-    await this.jobsService.createJob({
-      type: JobType.PENALTY_ACCRUAL_DAILY,
-      key: `penalty_accrual:${day}`,
-      payload: {
-        day,
-        accrualDate: `${day}T00:00:00.000Z`
-      },
-      runAt
-    });
-
-    await this.jobsService.createJob({
-      type: JobType.DAILY_AGGREGATE_BUILD,
-      key: `daily_aggregate:${targetDay}`,
-      payload: {
-        day: targetDay,
-        targetDate
-      },
-      runAt
-    });
-
-    this.logger.log(`Scheduled daily jobs for ${day}, aggregate target=${targetDay} runAt=${runAt.toISOString()}`);
+    this.logger.log(`Scheduled daily jobs for ${day} runAt=${runAt.toISOString()}`);
   }
 
   private dayKey(date: Date): string {
     return date.toISOString().slice(0, 10);
-  }
-
-  private previousDayKey(date: Date): string {
-    const previous = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 1, 0, 0, 0, 0));
-    return previous.toISOString().slice(0, 10);
   }
 
   private twoAmUtc(date: Date): Date {

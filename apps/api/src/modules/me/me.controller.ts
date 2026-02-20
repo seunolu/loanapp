@@ -44,4 +44,10 @@ export class MeController {
   ): Promise<ConsentResponseDto> {
     return this.meService.acceptConsent(borrower, body);
   }
+
+  @Get('holds')
+  @ApiOperation({ summary: 'Get active borrower hold status' })
+  async getHolds(@CurrentBorrower() borrower: BorrowerPrincipal) {
+    return this.meService.getHolds(borrower);
+  }
 }

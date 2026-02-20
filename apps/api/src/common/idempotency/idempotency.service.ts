@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { IdempotencyStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { IdempotencyConflictError } from '../errors/domain-errors';
+import { MetricsService } from '../observability/metrics.service';
+import { RedisService } from '../redis/redis.service';
 
 type IdempotencyLookupParams = {
   key: string;
@@ -16,7 +19,18 @@ type IdempotencyDecision =
 
 @Injectable()
 export class IdempotencyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metricsService: MetricsService,
+    private readonly redisService: RedisService
+  ) {}
+
+  async record(key: string, ttlSeconds: number): Promise<boolean> {
+    if (!key || ttlSeconds < 1) {
+      return false;
+    }
+    return this.redisService.setIfNotExists(`idem:job:${key}`, '1', ttlSeconds);
+  }
 
   hashRequest(method: string, path: string, body: unknown): string {
     const payload = `${method.toUpperCase()}:${path}:${this.stableStringify(body ?? null)}`;
@@ -30,13 +44,11 @@ export class IdempotencyService {
     const existing = await this.findByKey(params.key, method, params.path);
     if (existing) {
       if (existing.requestHash !== requestHash) {
-        throw new ConflictException({
-          code: 'IDEMPOTENCY_KEY_CONFLICT',
-          message: 'Idempotency-Key was already used with a different request payload.',
-          details: {
-            key: params.key
-          }
-        });
+        this.metricsService.increment('idempotency_conflict_total', 'global');
+        throw new IdempotencyConflictError(
+          'Idempotency-Key was already used with a different request payload.',
+          { key: params.key }
+        );
       }
 
       if (existing.status === IdempotencyStatus.COMPLETED) {
@@ -47,12 +59,9 @@ export class IdempotencyService {
         };
       }
 
-      throw new ConflictException({
-        code: 'IDEMPOTENCY_KEY_IN_PROGRESS',
-        message: 'A request with this Idempotency-Key is still in progress.',
-        details: {
-          key: params.key
-        }
+      this.metricsService.increment('idempotency_conflict_total', 'global');
+      throw new IdempotencyConflictError('A request with this Idempotency-Key is still in progress.', {
+        key: params.key
       });
     }
 
@@ -60,13 +69,11 @@ export class IdempotencyService {
 
     if (!pending.created) {
       if (pending.record.requestHash !== requestHash) {
-        throw new ConflictException({
-          code: 'IDEMPOTENCY_KEY_CONFLICT',
-          message: 'Idempotency-Key was already used with a different request payload.',
-          details: {
-            key: params.key
-          }
-        });
+        this.metricsService.increment('idempotency_conflict_total', 'global');
+        throw new IdempotencyConflictError(
+          'Idempotency-Key was already used with a different request payload.',
+          { key: params.key }
+        );
       }
 
       if (pending.record.status === IdempotencyStatus.COMPLETED) {
@@ -77,12 +84,9 @@ export class IdempotencyService {
         };
       }
 
-      throw new ConflictException({
-        code: 'IDEMPOTENCY_KEY_IN_PROGRESS',
-        message: 'A request with this Idempotency-Key is still in progress.',
-        details: {
-          key: params.key
-        }
+      this.metricsService.increment('idempotency_conflict_total', 'global');
+      throw new IdempotencyConflictError('A request with this Idempotency-Key is still in progress.', {
+        key: params.key
       });
     }
 

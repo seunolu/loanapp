@@ -3,8 +3,12 @@
 ## Setup
 1. Copy env file:
    - `cp apps/admin/.env.example apps/admin/.env.local`
-2. Install dependencies from repo root:
+2. Ensure API base URL is set in `apps/admin/.env.local`:
+   - `NEXT_PUBLIC_API_BASE_URL=http://localhost:3000`
+3. Install dependencies from repo root:
    - `pnpm install`
+4. If env values were changed while dev server was running, clear cache before restart:
+   - delete `apps/admin/.next`
 
 ## Run
 - From repo root:
@@ -38,3 +42,11 @@
 - Middleware attempts one refresh via `/api/auth/refresh` when access token is missing/expired.
 - Dashboard data is fetched with React Query from Next proxy route `/api/proxy/admin/reports/summary`.
 - Permissions are loaded from backend `/admin/me`.
+- Every outbound API request includes `x-request-id`; failed requests show requestId in error messages for support/debugging.
+- Optional Sentry client telemetry is enabled only when `NEXT_PUBLIC_SENTRY_DSN` is set.
+- Background jobs visibility:
+  - `/dashboard/jobs` shows tenant-scoped queue list
+  - `/dashboard/jobs/:id` shows payload/error details
+- Operations controls:
+  - `/dashboard/operations` (SUPER_ADMIN or SYSTEM only)
+  - supports failed/waiting/active/completed filters, job detail view, and safe retry action

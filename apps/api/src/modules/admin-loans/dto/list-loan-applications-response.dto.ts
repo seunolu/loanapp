@@ -13,8 +13,8 @@ export class AdminLoanApplicationListItemDto {
   @ApiProperty()
   tenorDays!: number;
 
-  @ApiProperty({ enum: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'] })
-  status!: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'REQUESTED_DOCUMENTS', 'APPROVED', 'DISBURSED', 'REPAID', 'DEFAULTED', 'REJECTED'] })
+  status!: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'REQUESTED_DOCUMENTS' | 'APPROVED' | 'DISBURSED' | 'REPAID' | 'DEFAULTED' | 'REJECTED';
 
   @ApiProperty({ format: 'date-time' })
   submittedAt!: string;

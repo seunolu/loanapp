@@ -1,7 +1,7 @@
-﻿import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AdminStatus } from '@prisma/client';
 import { PassportStrategy } from '@nestjs/passport';
+import { AdminStatus } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { AdminPrincipal } from '../../../common/auth/admin-principal';
 import type { AdminRoleName } from '../../../common/auth/admin-principal';
@@ -14,6 +14,7 @@ type AdminAccessPayload = {
   sid?: string;
   typ?: string;
   lid?: string | null;
+  tenantId?: string | null;
   role?: AdminRoleName;
   email?: string;
 };
@@ -21,12 +22,16 @@ type AdminAccessPayload = {
 @Injectable()
 export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
   constructor(
-    configService: ConfigService<Env, true>,
+    @Optional() @Inject(ConfigService) configService: ConfigService<Env, true> | undefined,
     private readonly prisma: PrismaService
   ) {
+    const jwtSecret =
+      configService?.get('ADMIN_JWT_ACCESS_SECRET', { infer: true }) ??
+      process.env.ADMIN_JWT_ACCESS_SECRET ??
+      'change-this-admin-access-secret';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get('ADMIN_JWT_ACCESS_SECRET', { infer: true }),
+      secretOrKey: jwtSecret,
       issuer: ADMIN_JWT_ISSUER,
       audience: ADMIN_JWT_AUDIENCE,
       ignoreExpiration: false
@@ -59,6 +64,7 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
       !session ||
       session.adminUserId !== payload.sub ||
       session.adminUser.lenderId !== (payload.lid ?? null) ||
+      session.adminUser.lenderId !== (payload.tenantId ?? null) ||
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now()
     ) {
@@ -80,6 +86,7 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     return {
       adminId: session.adminUser.id,
       lenderId: session.adminUser.lenderId ?? '',
+      tenantId: session.adminUser.lenderId ?? null,
       email: session.adminUser.email,
       role: session.adminUser.role,
       sessionId: session.id
@@ -97,3 +104,4 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     );
   }
 }
+

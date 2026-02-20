@@ -111,7 +111,7 @@ export class AdminReportsService {
   }
 
   async getPortfolio(admin: AdminPrincipal, query: PortfolioQueryDto): Promise<PortfolioReportDto> {
-    const { from, to } = this.parseRange(query.from, query.to);
+    const { from, to } = this.parseRange(query.from, query.to, admin.role);
 
     const [submittedAgg, approvedCount, rejectedCount, offersAgg, disbursementAgg] = await Promise.all([
       this.prisma.loanApplication.aggregate({
@@ -170,7 +170,7 @@ export class AdminReportsService {
   }
 
   async getCollections(admin: AdminPrincipal, query: CollectionsQueryDto): Promise<CollectionsReportDto> {
-    const { from, to } = this.parseRange(query.from, query.to);
+    const { from, to } = this.parseRange(query.from, query.to, admin.role);
 
     const aggregate = await this.prisma.repayment.aggregate({
       where: {
@@ -352,7 +352,7 @@ export class AdminReportsService {
     return asOf;
   }
 
-  private parseRange(fromValue: string, toValue: string): { from: Date; to: Date } {
+  private parseRange(fromValue: string, toValue: string, role: AdminPrincipal['role']): { from: Date; to: Date } {
     const from = new Date(fromValue);
     const to = new Date(toValue);
 
@@ -369,6 +369,16 @@ export class AdminReportsService {
         code: 'BAD_REQUEST',
         message: 'from must be before or equal to to.',
         details: null
+      });
+    }
+
+    const windowMs = to.getTime() - from.getTime();
+    const maxWindowMs = 93 * 24 * 60 * 60 * 1000;
+    if (windowMs > maxWindowMs && role !== 'SUPER_ADMIN') {
+      throw new BadRequestException({
+        code: 'BAD_REQUEST',
+        message: 'Date window cannot exceed 93 days for this role.',
+        details: { maxDays: 93 }
       });
     }
 

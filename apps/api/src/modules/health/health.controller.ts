@@ -1,28 +1,30 @@
-﻿import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { HealthService } from './health.service';
 
-type HealthResponse = {
-  status: 'ok' | 'degraded';
-  version: string;
-  database: {
-    status: 'up' | 'down';
-  };
-};
-
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
-  @Get()
-  async getHealth(): Promise<HealthResponse> {
-    const dbUp = await this.healthService.isDatabaseHealthy();
-
+  @Get('health')
+  async getHealth() {
+    const deep = await this.healthService.getDeepHealth();
     return {
-      status: dbUp ? 'ok' : 'degraded',
-      version: this.healthService.getVersion(),
-      database: {
-        status: dbUp ? 'up' : 'down'
-      }
+      ...deep,
+      status: 'ok' as const,
+      version: this.healthService.getVersion()
     };
+  }
+
+  @Get('ready')
+  async getReadiness() {
+    const readiness = await this.healthService.getReadiness();
+    if (readiness.status !== 'ready') {
+      throw new ServiceUnavailableException({
+        code: 'NOT_READY',
+        message: 'Service is not ready.',
+        details: readiness
+      });
+    }
+    return readiness;
   }
 }

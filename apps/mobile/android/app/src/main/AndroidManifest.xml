@@ -26,6 +26,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="loanapp-mobile"/>
         <data android:scheme="com.loanapp.mobile"/>
+        <data android:scheme="exp+loanapp-mobile"/>
       </intent-filter>
     </activity>
   </application>

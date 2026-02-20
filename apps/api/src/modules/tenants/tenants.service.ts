@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/database/prisma.service';
 import type { ResolveTenantQueryDto } from './dto/resolve-tenant-query.dto';
 import type { ResolveTenantResponseDto } from './dto/resolve-tenant-response.dto';
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService
+  ) {}
 
   async resolveTenant(input: ResolveTenantQueryDto): Promise<ResolveTenantResponseDto> {
     const slug = input.slug.trim().toLowerCase();
@@ -43,6 +47,15 @@ export class TenantsService {
         });
       }
     }
+
+    void this.auditService.log({
+      tenantId: bySlug.id,
+      actorType: 'SYSTEM',
+      action: 'TENANT_RESOLVE',
+      entity: 'TENANT',
+      entityId: bySlug.id,
+      metadata: { slug, lenderTitle: lenderTitle ?? null }
+    });
 
     return {
       tenantId: bySlug.id,

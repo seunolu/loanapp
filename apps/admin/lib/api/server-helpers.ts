@@ -20,10 +20,12 @@ export function authCookieOptions() {
   };
 }
 
-export function setAuthCookies(accessToken: string, refreshToken: string) {
+export function setAuthCookies(accessToken: string, refreshToken?: string) {
   const cookieStore = cookies();
   cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, authCookieOptions());
-  cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, authCookieOptions());
+  if (refreshToken) {
+    cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, authCookieOptions());
+  }
 }
 
 export function clearAuthCookies() {

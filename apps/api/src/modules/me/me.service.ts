@@ -155,6 +155,34 @@ export class MeService {
     };
   }
 
+  async getHolds(principal: BorrowerPrincipal): Promise<{
+    active: boolean;
+    hold: null | { id: string; status: 'ACTIVE'; reason: string; createdAt: string };
+  }> {
+    const hold = await this.prisma.borrowerHold.findFirst({
+      where: {
+        tenantId: principal.tenantId,
+        status: 'ACTIVE',
+        OR: [{ borrowerId: principal.borrowerId }, { borrowerId: principal.phone }]
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!hold) {
+      return { active: false, hold: null };
+    }
+
+    return {
+      active: true,
+      hold: {
+        id: hold.id,
+        status: 'ACTIVE',
+        reason: hold.reason,
+        createdAt: hold.createdAt.toISOString()
+      }
+    };
+  }
+
   private isAdult(dateOfBirth: Date): boolean {
     const now = new Date();
     const adultDate = new Date(dateOfBirth);

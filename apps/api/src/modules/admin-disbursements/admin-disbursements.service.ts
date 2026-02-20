@@ -1,10 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Scope } from '@nestjs/common';
 import { DisbursementStatus, LoanStatus } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
 import type { AdminPrincipal } from '../../common/auth/admin-principal';
 import { PrismaService } from '../../common/database/prisma.service';
 import { LedgerService } from '../../common/ledger/ledger.service';
 import { NotificationsService } from '../../common/notifications/notifications.service';
+import { RequestContextService } from '../../common/request-context/request-context.service';
+import { buildIdempotencyKey } from '../../common/idempotency/idempotency';
 import type { CreateDisbursementDto } from './dto/create-disbursement.dto';
 import type { CreateDisbursementResponseDto } from './dto/create-disbursement-response.dto';
 import type { DisbursementStatusResponseDto } from './dto/disbursement-status-response.dto';
@@ -12,14 +14,18 @@ import type { MarkFailedDisbursementDto } from './dto/mark-failed-disbursement.d
 
 @Injectable({ scope: Scope.REQUEST })
 export class AdminDisbursementsService {
+  private readonly logger = new Logger(AdminDisbursementsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly ledgerService: LedgerService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly requestContextService: RequestContextService
   ) {}
 
   async create(admin: AdminPrincipal, input: CreateDisbursementDto): Promise<CreateDisbursementResponseDto> {
+    const context = this.requestContextService.get();
     const loan = await this.prisma.loan.findUnique({
       where: { id: input.loanId.trim() },
       select: {
@@ -121,6 +127,37 @@ export class AdminDisbursementsService {
         amountKobo: created.amountKobo
       }
     });
+    this.logger.log({
+      requestId: context.requestId,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      userId: admin.adminId,
+      action: 'DISBURSEMENT_INITIATED',
+      entity: 'DISBURSEMENT',
+      entityId: created.id,
+      metadata: { loanId: created.loanId, amountKobo: created.amountKobo }
+    });
+    await this.auditService.recordEvent({
+      requestId: context.requestId,
+      actorType: 'ADMIN',
+      actorId: admin.adminId,
+      actorRole: admin.role,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      lenderId: admin.lenderId,
+      action: 'DISBURSEMENT_CREATED',
+      entityType: 'Disbursement',
+      entityId: created.id,
+      metadata: {
+        amountKobo: created.amountKobo,
+        destinationBankAccountId: created.bankAccountId,
+        loanId: created.loanId
+      },
+      idempotencyKey: buildIdempotencyKey({
+        scope: 'disbursement_created',
+        tenantId: admin.tenantId ?? admin.lenderId ?? '',
+        loanId: created.loanId,
+        disbursementId: created.id
+      })
+    });
 
     return {
       disbursementId: created.id,
@@ -162,6 +199,7 @@ export class AdminDisbursementsService {
   }
 
   async markSucceeded(admin: AdminPrincipal, id: string): Promise<DisbursementStatusResponseDto> {
+    const context = this.requestContextService.get();
     const result = await this.prisma.$transaction(async (tx) => {
       const disbursement = await tx.disbursement.findUnique({
         where: { id },
@@ -285,6 +323,38 @@ export class AdminDisbursementsService {
         amountKobo: result.amountKobo
       }
     });
+    this.logger.log({
+      requestId: context.requestId,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      userId: admin.adminId,
+      action: 'DISBURSEMENT_SUCCEEDED',
+      entity: 'DISBURSEMENT',
+      entityId: result.id,
+      metadata: { loanId: result.loanId, amountKobo: result.amountKobo }
+    });
+    await this.auditService.recordEvent({
+      requestId: context.requestId,
+      actorType: 'ADMIN',
+      actorId: admin.adminId,
+      actorRole: admin.role,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      lenderId: admin.lenderId,
+      action: 'DISBURSEMENT_SENT',
+      entityType: 'Disbursement',
+      entityId: result.id,
+      metadata: {
+        amountKobo: result.amountKobo,
+        providerRef: result.journalEntryId,
+        loanId: result.loanId
+      },
+      idempotencyKey: buildIdempotencyKey({
+        scope: 'disbursement_sent',
+        tenantId: admin.tenantId ?? admin.lenderId ?? '',
+        loanId: result.loanId,
+        disbursementId: result.id,
+        attemptNo: 1
+      })
+    });
 
     const borrowerPhone = await this.prisma.loan.findUnique({
       where: { id: result.loanId },
@@ -310,6 +380,7 @@ export class AdminDisbursementsService {
     id: string,
     input: MarkFailedDisbursementDto
   ): Promise<DisbursementStatusResponseDto> {
+    const context = this.requestContextService.get();
     const disbursement = await this.getDisbursementOrThrow(id, admin.lenderId);
     if (
       disbursement.status !== DisbursementStatus.INITIATED &&
@@ -343,6 +414,37 @@ export class AdminDisbursementsService {
         loanId: updated.loanId,
         reason: updated.failureReason
       }
+    });
+    this.logger.log({
+      requestId: context.requestId,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      userId: admin.adminId,
+      action: 'DISBURSEMENT_FAILED',
+      entity: 'DISBURSEMENT',
+      entityId: updated.id,
+      metadata: { loanId: updated.loanId, reason: updated.failureReason }
+    });
+    await this.auditService.recordEvent({
+      requestId: context.requestId,
+      actorType: 'ADMIN',
+      actorId: admin.adminId,
+      actorRole: admin.role,
+      tenantId: admin.tenantId ?? admin.lenderId,
+      lenderId: admin.lenderId,
+      action: 'DISBURSEMENT_FAILED',
+      entityType: 'Disbursement',
+      entityId: updated.id,
+      metadata: {
+        loanId: updated.loanId,
+        failureReason: updated.failureReason
+      },
+      idempotencyKey: buildIdempotencyKey({
+        scope: 'disbursement_failed',
+        tenantId: admin.tenantId ?? admin.lenderId ?? '',
+        loanId: updated.loanId,
+        disbursementId: updated.id,
+        attemptNo: 1
+      })
     });
 
     return this.toStatusResponse(updated);

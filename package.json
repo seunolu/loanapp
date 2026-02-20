@@ -11,6 +11,9 @@
     "api:openapi:lint": "redocly lint docs/openapi.yaml",
     "sdk:generate": "pnpm -C packages/sdk generate",
     "sdk:build": "pnpm -C packages/sdk build",
+    "api:dev": "pnpm -C apps/api dev",
+    "worker:dev": "pnpm -C apps/api worker:dev",
+    "dev:all": "concurrently \"pnpm api:dev\" \"pnpm worker:dev\"",
     "admin:dev": "pnpm -C apps/admin dev",
     "admin:build": "pnpm -C apps/admin build",
     "admin:lint": "pnpm -C apps/admin lint",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@redocly/cli": "^1.27.1",
     "@eslint/js": "^9.39.2",
+    "concurrently": "^9.1.2",
     "eslint": "^9.39.2",
     "openapi-typescript": "^7.6.1",
     "typescript-eslint": "^8.54.0",

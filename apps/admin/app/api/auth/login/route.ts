@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getBackendUrl, getRequestIdFromHeaders, setAuthCookies } from '@/lib/api/server-helpers';
 
 const schema = z.object({
+  tenantSlug: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(1)
 });
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
   const accessToken = (payload as { accessToken?: string }).accessToken;
   const refreshToken = (payload as { refreshToken?: string }).refreshToken;
-  if (!accessToken || !refreshToken) {
+  if (!accessToken) {
     const badGateway = NextResponse.json(
       { error: { code: 'BAD_GATEWAY', message: 'Invalid login response.', details: null, requestId } },
       { status: 502 }
@@ -41,7 +42,11 @@ export async function POST(request: Request) {
   }
 
   setAuthCookies(accessToken, refreshToken);
-  const okResponse = NextResponse.json({ ok: true });
+  const okResponse = NextResponse.json({
+    accessToken,
+    refreshToken: refreshToken ?? null,
+    admin: (payload as { admin?: unknown }).admin ?? null
+  });
   okResponse.headers.set('X-Request-Id', requestId);
   return okResponse;
 }

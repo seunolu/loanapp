@@ -5,8 +5,11 @@ import { pino } from 'pino';
 import type { Env } from '../config/env.schema';
 
 type RequestLike = IncomingMessage & {
+  id?: string;
   requestId?: string;
   user?: {
+    tenantId?: string;
+    role?: string;
     borrowerId?: string;
     adminId?: string;
   };
@@ -48,8 +51,20 @@ export function buildPinoHttpConfig(configService: ConfigService<Env, true>): Pa
     }),
     customProps: (req: IncomingMessage, _res: ServerResponse) => {
       const request = req as RequestLike;
+      const actorType = request.user?.adminId ? 'TENANT_ADMIN' : request.user?.borrowerId ? 'BORROWER' : null;
+      const actorId = request.user?.adminId ?? request.user?.borrowerId ?? null;
       return {
-        requestId: request.requestId ?? 'unknown',
+        requestId: request.requestId ?? request.id ?? 'unknown',
+        tenantId: request.user?.tenantId ?? null,
+        actorType,
+        actorId,
+        actorRole: request.user?.role ?? null,
+        context: {
+          requestId: request.requestId ?? request.id ?? 'unknown',
+          tenantId: request.user?.tenantId ?? null,
+          actorType,
+          actorId
+        },
         borrowerId: request.user?.borrowerId ?? null,
         adminId: request.user?.adminId ?? null
       };

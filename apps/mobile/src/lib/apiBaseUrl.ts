@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-const DEV_DEFAULT_API_BASE_URL = 'http://10.0.2.2:3000';
+const DEV_DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const ANDROID_EMULATOR_FALLBACK_API_BASE_URL = 'http://10.0.2.2:3000';
 
 function trimTrailingSlashes(value: string): string {
@@ -14,7 +14,7 @@ export function getApiBaseUrl(): string {
   }
 
   if (__DEV__ && Platform.OS === 'android') {
-    return DEV_DEFAULT_API_BASE_URL;
+    return ANDROID_EMULATOR_FALLBACK_API_BASE_URL;
   }
 
   return DEV_DEFAULT_API_BASE_URL;

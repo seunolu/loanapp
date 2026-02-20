@@ -2,13 +2,15 @@ import { ForbiddenException, Injectable, Scope } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import type { AdminPrincipal } from '../../common/auth/admin-principal';
 import { RbacService } from '../../common/rbac/rbac.service';
+import { AuditWriterService } from '../audit/audit-writer.service';
 import type { AdminRoleResponseDto } from './dto/admin-role-response.dto';
 
 @Injectable({ scope: Scope.REQUEST })
 export class AdminRolesService {
   constructor(
     private readonly rbacService: RbacService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly auditWriterService: AuditWriterService
   ) {}
 
   async listRoles(admin: AdminPrincipal): Promise<AdminRoleResponseDto[]> {
@@ -45,6 +47,18 @@ export class AdminRolesService {
       actorType: 'ADMIN',
       actorId: admin.adminId,
       lenderId: admin.lenderId,
+      entityType: 'ADMIN_USER',
+      entityId: assignment.targetAdminUserId,
+      metadata: {
+        roleName: assignment.roleName,
+        roleAssignmentId: assignment.assignmentId
+      }
+    });
+    await this.auditWriterService.recordEvent({
+      tenantId: admin.tenantId ?? admin.lenderId,
+      actorUserId: admin.adminId,
+      actorRole: admin.role,
+      action: 'ADMIN_ROLE_CHANGE',
       entityType: 'ADMIN_USER',
       entityId: assignment.targetAdminUserId,
       metadata: {

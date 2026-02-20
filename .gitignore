@@ -6,3 +6,6 @@ coverage
 .env.*
 .pnpm-store
 .DS_Store
+# Next.js / TS build outputs
+apps/*/.next/
+**/*.tsbuildinfo

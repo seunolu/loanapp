@@ -1,10 +1,26 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class AdminListLoanApplicationsQueryDto {
-  @ApiPropertyOptional({ enum: ['SUBMITTED', 'APPROVED', 'REJECTED', 'DISBURSED'] })
+  @ApiPropertyOptional({ enum: ['SUBMITTED', 'UNDER_REVIEW', 'REQUESTED_DOCUMENTS', 'APPROVED', 'READY_FOR_DISBURSEMENT', 'DISBURSED', 'OVERDUE'] })
   @IsOptional()
-  @IsIn(['SUBMITTED', 'APPROVED', 'REJECTED', 'DISBURSED'])
-  status?: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DISBURSED';
-}
+  @IsIn(['SUBMITTED', 'UNDER_REVIEW', 'REQUESTED_DOCUMENTS', 'APPROVED', 'READY_FOR_DISBURSEMENT', 'DISBURSED', 'OVERDUE'])
+  status?: 'SUBMITTED' | 'UNDER_REVIEW' | 'REQUESTED_DOCUMENTS' | 'APPROVED' | 'READY_FOR_DISBURSEMENT' | 'DISBURSED' | 'OVERDUE';
 
+  @ApiPropertyOptional({ enum: ['OVERDUE'] })
+  @IsOptional()
+  @IsIn(['OVERDUE'])
+  queue?: 'OVERDUE';
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+}

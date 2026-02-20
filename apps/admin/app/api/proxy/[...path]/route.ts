@@ -14,10 +14,19 @@ type RouteContext = {
   };
 };
 
+function getBearerToken(headers: Headers): string | null {
+  const authorization = headers.get('authorization');
+  if (!authorization) {
+    return null;
+  }
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
 async function forward(request: Request, context: RouteContext): Promise<NextResponse> {
   const path = context.params.path.join('/');
   const requestId = getRequestIdFromHeaders(request.headers);
-  let accessToken = readAccessToken();
+  let accessToken = readAccessToken() ?? getBearerToken(request.headers);
   const refreshToken = readRefreshToken();
   const incomingUrl = new URL(request.url);
   const url = `${getBackendUrl(`/${path}`)}${incomingUrl.search}`;

@@ -33,18 +33,25 @@ Android-first borrower app built with Expo + expo-router.
 
 ## Auth flow test (end-to-end)
 
-1. Open app and go to `Tenant` screen.
-2. Enter lender slug (for example `acme`) and continue.
-3. On login screen, enter phone and request OTP.
-4. Enter OTP on verify screen.
-5. App stores tokens in `expo-secure-store` and routes to `/home`.
+1. Open app and go to `Welcome`.
+2. Create account or login (single-tenant borrower flow, no tenant picker).
+3. Enter OTP on verify screen.
+4. App stores tokens in `expo-secure-store` and routes to `/home`.
 6. Kill and reopen app; protected screens should still work if refresh/session valid.
 7. Force token expiry in backend (short TTL), call `/home` again:
    - client should refresh with `/api/v1/auth/refresh` and retry once automatically.
 
+## API base URL
+
+- Set `EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env` for physical device testing.
+- If unset, Android emulator defaults to `http://10.0.2.2:3000`.
+- For physical device, set LAN URL explicitly, e.g. `http://192.168.1.10:3000`.
+
 ## Windows monorepo Metro note
 
-On Windows in this monorepo, Metro may crash if it traverses `apps/borrower/node_modules` (for example on hidden `.ignored_*` entries with `EACCES`). We block that path in `apps/mobile/metro.config.js` to keep the Expo dev server stable.
+Metro is intentionally restricted to `apps/mobile` plus `packages` in `apps/mobile/metro.config.js`. This avoids Windows pnpm symlink/permission issues where Metro can crash on `node_modules/.ignored_*` entries with `EACCES`.
+
+If the dev client asks for a server URL, use the LAN URL emitted by `expo start` (for example `exp+...://...?url=http://192.168.x.x:8081`), not `10.0.2.2`, unless you are explicitly using `adb reverse`.
 
 How to run:
 - `cd apps/mobile`

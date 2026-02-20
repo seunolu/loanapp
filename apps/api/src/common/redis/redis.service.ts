@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import type { Env } from '../config/env.schema';
@@ -8,20 +8,22 @@ export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private readonly client: Redis;
 
-  constructor(private readonly configService: ConfigService<Env, true>) {
-    this.client = new Redis(this.configService.get('REDIS_URL', { infer: true }));
+  constructor(@Optional() @Inject(ConfigService) private readonly configService?: ConfigService<Env, true>) {
+    const redisUrl = this.configService?.get('REDIS_URL', { infer: true }) ?? process.env.REDIS_URL ?? 'redis://localhost:6379';
+    this.client = new Redis(redisUrl);
     this.client.on('error', (error: Error) => {
       this.logger.error(`Redis connection error: ${error.message}`);
     });
   }
 
   async incrementWithWindow(key: string, windowSec: number): Promise<number> {
-    const tx = this.client.multi();
-    tx.incr(key);
-    tx.expire(key, windowSec, 'NX');
-    const result = await tx.exec();
-    const count = result?.[0]?.[1];
-    return typeof count === 'number' ? count : Number(count ?? 0);
+    const count = await this.client.incr(key);
+    // Set TTL only on first increment to preserve fixed-window behavior
+    // and avoid EXPIRE option compatibility issues across Redis versions.
+    if (count === 1) {
+      await this.client.expire(key, windowSec);
+    }
+    return count;
   }
 
   async setIfNotExists(key: string, value: string, ttlSec: number): Promise<boolean> {

@@ -25,6 +25,10 @@ type PenaltyAccrualResult = {
   } | null;
 };
 
+/**
+ * @deprecated Legacy lender-loan penalty service.
+ * Canonical penalties are handled by modules/collections/penalty.service.ts.
+ */
 @Injectable()
 export class PenaltyService {
   constructor(
@@ -34,6 +38,7 @@ export class PenaltyService {
   ) {}
 
   async accrueDailyPenalty(loanId: string, accrualDateInput?: string): Promise<PenaltyAccrualResult> {
+    this.assertLegacyPenaltyWritesEnabled();
     const accrualDate = this.normalizeAccrualDate(accrualDateInput);
 
     const existing = await this.prisma.penaltyAccrual.findUnique({
@@ -227,5 +232,23 @@ export class PenaltyService {
     }
 
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  }
+
+  /**
+   * Legacy loan-level penalty accrual writes are disabled by default.
+   * Canonical path: tenant collections engine using TenantPenaltyAccrual.
+   */
+  private assertLegacyPenaltyWritesEnabled(): void {
+    if (process.env.ENABLE_LEGACY_PENALTY_ACCRUAL === 'true') {
+      return;
+    }
+    throw new ConflictException({
+      code: 'CONFLICT',
+      message:
+        'Legacy penalty accrual is disabled. Use tenant collections penalty accrual (TenantPenaltyAccrual).',
+      details: {
+        featureFlag: 'ENABLE_LEGACY_PENALTY_ACCRUAL'
+      }
+    });
   }
 }

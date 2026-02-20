@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiHeader, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 import { AuthTokensResponseDto } from './dto/auth-tokens-response.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -14,6 +15,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('request-otp')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request an OTP challenge' })
   @ApiHeader({ name: 'X-Lender-Id', required: true, description: 'Tenant lender ID for anonymous auth flow' })
@@ -23,6 +25,7 @@ export class AuthController {
   }
 
   @Post('verify-otp')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and issue auth tokens' })
   @ApiHeader({ name: 'X-Lender-Id', required: true, description: 'Tenant lender ID for anonymous auth flow' })
@@ -33,6 +36,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate refresh token and issue new tokens' })
   @ApiOkResponse({ type: AuthTokensResponseDto })
@@ -42,6 +46,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @RateLimit('AUTH')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke active refresh token session' })
   @ApiOkResponse({ type: LogoutResponseDto })

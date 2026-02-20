@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { JournalLineType, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
@@ -25,7 +25,37 @@ export type LedgerPostedJournalEntry = {
 
 @Injectable()
 export class LedgerService {
+  private readonly logger = new Logger(LedgerService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private assertBalanced(lines: Array<{ entryType: 'DEBIT' | 'CREDIT'; amountKobo: number }>): {
+    debitTotalKobo: number;
+    creditTotalKobo: number;
+  } {
+    let debitTotalKobo = 0;
+    let creditTotalKobo = 0;
+    for (const line of lines) {
+      if (line.entryType === 'DEBIT') {
+        debitTotalKobo += line.amountKobo;
+      } else {
+        creditTotalKobo += line.amountKobo;
+      }
+    }
+    if (debitTotalKobo !== creditTotalKobo) {
+      this.logger.error({
+        event: 'journal_unbalanced',
+        debitTotalKobo,
+        creditTotalKobo
+      });
+      throw new InternalServerErrorException({
+        code: 'LEDGER_UNBALANCED',
+        message: 'Journal entry must be balanced: debit total must equal credit total.',
+        details: { debitTotalKobo, creditTotalKobo }
+      });
+    }
+    return { debitTotalKobo, creditTotalKobo };
+  }
 
   async postJournalEntry(
     input: LedgerPostJournalEntryInput,
@@ -41,8 +71,6 @@ export class LedgerService {
       });
     }
 
-    let debitTotalKobo = 0;
-    let creditTotalKobo = 0;
     const normalizedLines = input.lines.map((line, index) => {
       const accountCode = line.accountCode.trim();
       const entryType = line.entryType;
@@ -72,12 +100,6 @@ export class LedgerService {
         });
       }
 
-      if (entryType === 'DEBIT') {
-        debitTotalKobo += amountKobo;
-      } else {
-        creditTotalKobo += amountKobo;
-      }
-
       return {
         accountCode,
         entryType,
@@ -86,16 +108,7 @@ export class LedgerService {
       };
     });
 
-    if (debitTotalKobo !== creditTotalKobo) {
-      throw new BadRequestException({
-        code: 'BAD_REQUEST',
-        message: 'Journal entry must be balanced: debit total must equal credit total.',
-        details: {
-          debitTotalKobo,
-          creditTotalKobo
-        }
-      });
-    }
+    const { debitTotalKobo, creditTotalKobo } = this.assertBalanced(normalizedLines);
 
     const writeWithClient = async (client: Prisma.TransactionClient): Promise<string> => {
       const uniqueCodes = [...new Set(normalizedLines.map((line) => line.accountCode))];

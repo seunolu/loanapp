@@ -18,41 +18,142 @@ model AppMeta {
 model IdempotencyKey {
   id             String            @id @default(cuid())
   key            String
+  tenantId       String?
+  scope          String?
   requestMethod  String
   requestPath    String
   requestHash    String
   status         IdempotencyStatus @default(PENDING)
   responseStatus Int?
   responseBody   Json?
+  response       Json?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
   @@unique([key, requestMethod, requestPath])
+  @@unique([tenantId, scope, key])
+  @@index([tenantId, scope, createdAt])
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   event     String
   action    String?
+  status    AuditStatus @default(SUCCESS)
+  summary   String?
+  tenantId  String?
   lenderId  String?
   requestId String?
   ip        String?
   userAgent String?
   actorType String?
   actorId   String?
+  actorRole String?
+  entity    String?
   entityType String?
   entityId   String?
+  before     Json?
+  after      Json?
+  error      Json?
   metadata  Json?
   createdAt DateTime @default(now())
   lender    Lender?  @relation(fields: [lenderId], references: [id], onDelete: SetNull)
 
   @@index([event])
   @@index([action])
+  @@index([tenantId, action])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
   @@index([lenderId, createdAt])
   @@index([actorType, actorId, createdAt])
+  @@index([actorType, actorId])
+  @@index([entityType, entityId])
   @@index([entityType, entityId, createdAt])
   @@index([requestId])
   @@index([createdAt])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+
+  chainId        String
+  sequence       Int
+  hash           String
+  prevHash       String?
+  signatureVersion Int    @default(1)
+
+  requestId      String?
+  ipAddress      String?
+  userAgent      String?
+  actorType      AuditActorType
+  actorId        String?
+  actorRole      String?
+  severity       AuditSeverity @default(INFO)
+
+  tenantId       String?
+  lenderId       String?
+
+  action         String
+  resourceType   String?
+  resourceId     String?
+  entityType     String
+  entityId       String
+
+  beforeJson     Json?
+  afterJson      Json?
+  metadataJson   Json?
+  diffJson       Json?
+
+  idempotencyKey String?  @unique
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@index([tenantId, action, createdAt])
+  @@index([tenantId, resourceType, resourceId, createdAt])
+  @@index([requestId])
+  @@unique([chainId, sequence])
+}
+
+model AuditChainState {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  chainId      String
+  lastHash     String?
+  lastSequence Int      @default(0)
+  rotatedAt    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SuspiciousActivity {
+  id         String   @id @default(cuid())
+  tenantId   String
+  entityType String
+  entityId   String
+  reason     String
+  severity   String
+  createdAt  DateTime @default(now())
+  resolved   Boolean  @default(false)
+  resolvedBy String?
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, resolved, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  tenantId  String
+  key       String
+  enabled   Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, key, enabled])
 }
 
 model NotificationLog {
@@ -70,6 +171,101 @@ model NotificationLog {
   @@index([event, createdAt])
   @@index([status, createdAt])
   @@index([recipient, createdAt])
+}
+
+model Notification {
+  id             String                   @id @default(cuid())
+  tenantId       String
+  audienceType   NotificationAudienceType
+  audienceUserId String
+  channel        NotificationDeliveryChannel
+  templateKey    String
+  title          String
+  body           String
+  dataJson       Json
+  status         NotificationRecordStatus @default(QUEUED)
+  idempotencyKey String
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  readAt         DateTime?
+  outbox         NotificationOutbox?
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([tenantId, audienceType, audienceUserId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+model NotificationOutbox {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  notificationId String                 @unique
+  status         NotificationOutboxStatus @default(PENDING)
+  attempts       Int                    @default(0)
+  lastError      String?
+  nextAttemptAt  DateTime               @default(now())
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  notification   Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, nextAttemptAt])
+}
+
+model OutboxEvent {
+  id              String   @id @default(cuid())
+  tenantId        String
+  aggregateType   String
+  aggregateId     String
+  eventType       String
+  payload         Json
+  createdAt       DateTime @default(now())
+  publishedAt     DateTime?
+  publishAttempts Int      @default(0)
+  lastPublishError String?
+  traceId         String?
+  causationId     String?
+  correlationId   String?
+
+  @@index([tenantId, createdAt])
+  @@index([aggregateType, aggregateId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([publishedAt, createdAt])
+}
+
+model EventConsumerCheckpoint {
+  id            String   @id @default(cuid())
+  consumerName  String   @unique
+  stream        String
+  group         String
+  lastMessageId String
+  updatedAt     DateTime @updatedAt
+}
+
+model ProcessedEvent {
+  id           String   @id @default(cuid())
+  eventId      String
+  consumerName String
+  processedAt  DateTime @default(now())
+
+  @@unique([eventId, consumerName])
+  @@index([consumerName, processedAt])
+}
+
+model LoanApplicationReadModel {
+  id              String   @id
+  tenantId        String
+  status          String
+  createdAt       DateTime
+  updatedAt       DateTime
+  borrowerName    String?
+  amountRequested Decimal? @db.Decimal(18, 2)
+  amount          Int?
+  tenorMonths     Int?
+  productCode     String?
+  riskBand        String?
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
 }
 
 model Lender {
@@ -115,6 +311,7 @@ model Tenant {
   updatedAt        DateTime                @updatedAt
   admins           TenantAdminUser[]
   loanApplications TenantLoanApplication[]
+  loanProducts     LoanProduct[]
 }
 
 model TenantAdminUser {
@@ -122,7 +319,8 @@ model TenantAdminUser {
   tenantId             String
   email                String
   passwordHash         String
-  role                 TenantAdminRole           @default(TENANT_ADMIN)
+  role                 TenantAdminRole           @default(CREDIT_OFFICER)
+  isActive             Boolean                    @default(true)
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
   tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -130,25 +328,61 @@ model TenantAdminUser {
 
   @@unique([tenantId, email])
   @@index([tenantId])
+  @@index([tenantId, isActive])
 }
 
 model Job {
   id          String    @id @default(cuid())
   type        JobType
-  key         String
-  payload     Json?
   status      JobStatus @default(PENDING)
-  attempts    Int       @default(0)
-  maxAttempts Int       @default(5)
+  tenantId    String
+  lenderId    String?
+  dedupeKey   String?   @unique
+  payload     Json
   runAt       DateTime  @default(now())
-  lockedAt    DateTime?
-  deadAt      DateTime?
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(10)
   lastError   String?
+  backoffMs   Int       @default(5000)
+  lockedAt    DateTime?
+  lockedBy    String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  succeededAt DateTime?
+  failedAt    DateTime?
 
-  @@unique([type, key])
-  @@index([status, runAt, createdAt])
+  @@index([status, runAt])
+  @@index([tenantId, status, runAt])
+  @@index([tenantId, type, dedupeKey])
+}
+
+model JobDlq {
+  id         String   @id @default(cuid())
+  tenantId   String
+  jobId      String
+  type       String
+  payloadJson Json
+  attempts   Int
+  lastError  String
+  failedAt   DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([jobId])
+  @@index([tenantId, type, createdAt])
+}
+
+model SystemIntegritySnapshot {
+  id                String                @id @default(cuid())
+  tenantId          String
+  checkedAt         DateTime              @default(now())
+  totalLoansChecked Int
+  failuresCount     Int
+  status            SystemIntegrityStatus
+  details           Json?
+
+  @@index([tenantId, checkedAt])
+  @@index([checkedAt])
 }
 
 model DailyAggregate {
@@ -213,9 +447,19 @@ model Borrower {
   riskProfile BorrowerRiskProfile?
   riskEvents RiskEvent[]
   trackedDevices Device[] @relation("BorrowerTrackedDevices")
+  identityVerifications IdentityVerification[]
+  userConsents UserConsent[]
+  mandates Mandate[]
 
   @@unique([lenderId, phone])
   @@index([lenderId])
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  MANUAL_REVIEW
 }
 
 model Device {
@@ -385,6 +629,41 @@ model ConsentRecord {
 
   @@unique([borrowerId, type, version])
   @@index([borrowerId, acceptedAt])
+}
+
+model IdentityVerification {
+  id                 String             @id @default(cuid())
+  lenderId           String
+  userId             String
+  provider           String
+  bvnHash            String?
+  ninHash            String?
+  verifiedName       String?
+  verifiedDob        DateTime?
+  verificationStatus VerificationStatus
+  matchScore         Float?
+  riskFlags          Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               Borrower           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lenderId, userId, createdAt])
+  @@index([lenderId, verificationStatus, createdAt])
+  @@index([lenderId, bvnHash])
+}
+
+model UserConsent {
+  id         String   @id @default(cuid())
+  lenderId   String
+  userId     String
+  type       String
+  ipAddress  String?
+  userAgent  String?
+  acceptedAt DateTime @default(now())
+  user       Borrower @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lenderId, userId, acceptedAt])
+  @@index([lenderId, type, acceptedAt])
 }
 
 model File {
@@ -568,6 +847,41 @@ model TenantLoanApplication {
   id               String                      @id @default(cuid())
   tenantId         String
   status           TenantLoanApplicationStatus @default(SUBMITTED)
+  principal        Decimal                     @default(0) @db.Decimal(18, 2)
+  currency         String                      @default("NGN")
+  annualInterestRateBps Int                    @default(0)
+  termInDays       Int                         @default(0)
+  repaymentFrequency RepaymentFrequency        @default(MONTHLY)
+  disbursedAt      DateTime?
+  requestedAmount  Decimal                     @default(0) @db.Decimal(18, 2)
+  approvedAmount   Decimal?                    @db.Decimal(18, 2)
+  disbursedAmount  Decimal?                    @db.Decimal(18, 2)
+  annualInterestRate Decimal?                  @db.Decimal(8, 4)
+  lastAccruedAt    DateTime?
+  interestAccrualPaused Boolean               @default(false)
+  interestPausedUntil DateTime?
+  interestPausedAt DateTime?
+  interestPausedById String?
+  interestPauseReason String?
+  interestOverrideRate Decimal?               @db.Decimal(10, 5)
+  interestOverrideSetAt DateTime?
+  interestOverrideSetById String?
+  outstandingPrincipal Decimal                 @default(0) @db.Decimal(18, 2)
+  outstandingInterest Decimal                  @default(0) @db.Decimal(18, 2)
+  outstandingFees  Decimal                     @default(0) @db.Decimal(18, 2)
+  outstandingTotal Decimal                     @default(0) @db.Decimal(18, 2)
+  daysPastDue      Int                         @default(0)
+  delinquencyBucket String?
+  overdueAmountCents BigInt                    @default(0)
+  delinquencyStatus DelinquencyStatus          @default(CURRENT)
+  totalPenaltyAccrued Decimal                  @default(0) @db.Decimal(18, 2)
+  totalPenaltyPaid    Decimal                  @default(0) @db.Decimal(18, 2)
+  lastPenaltyAccrualDate DateTime?
+  writtenOffAt      DateTime?
+  settledAt         DateTime?
+  lastDelinquencyCalcAt DateTime?
+  nextDueDate      DateTime?
+  fullyRepaidAt    DateTime?
   fullName         String
   phone            String
   email            String?
@@ -578,13 +892,869 @@ model TenantLoanApplication {
   purpose          String?
   employmentStatus String?
   incomeBand       String?
+  deviceId         String?
   createdAt        DateTime                    @default(now())
   updatedAt        DateTime                    @updatedAt
   tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   events           TenantLoanApplicationEvent[]
+  histories        LoanApplicationStatusHistory[]
+  disbursement     TenantDisbursement?
+  repayments       TenantRepayment[]
+  repaymentSchedule TenantRepaymentSchedule[]
+  scheduleItems    LoanRepaymentScheduleItem[]
+  loanRepayments   LoanRepayment[]
+  delinquencyEvents DelinquencyEvent[]
+  collectionActivities CollectionActivity[]
+  scheduleVersions RepaymentScheduleVersion[]
+  collectionsCases CollectionsCase[]
+  penaltyAccruals TenantPenaltyAccrual[]
+  interestAccrualAudits InterestAccrualAudit[]
+  disbursementStatusHistory TenantDisbursementStatusHistory[]
+  riskAssessment LoanApplicationRiskAssessment?
+  riskAssessmentHistory LoanApplicationRiskAssessmentHistory[]
+  riskHolds LoanApplicationHold[]
+  riskEvaluations RiskEvaluation[]
+  decisionEvents LoanDecisionEvent[]
+  fraudSignals  FraudSignalEvent[]
+  fraudSignalsV2 FraudSignal[]
+  fraudAlerts   FraudAlert[]
+  cases         Case[]
+  hardshipRequests HardshipRequest[]
+  capitalAllocation CapitalAllocation?
+  mandates Mandate[]
+  lastRiskScore Int?
+  lastRiskDecision RiskDecision?
+  lastRiskEvaluatedAt DateTime?
+  lastRiskEvaluationId String?
 
   @@index([tenantId])
   @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, deviceId])
+}
+
+model RepaymentScheduleVersion {
+  id                String   @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  version           Int
+  effectiveFrom     DateTime
+  jsonPlan          Json
+  createdById       String
+  createdAt         DateTime @default(now())
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, loanApplicationId, version])
+  @@index([tenantId, loanApplicationId, effectiveFrom])
+}
+
+model HardshipRequest {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  borrowerId          String
+  loanApplicationId   String
+  type                HardshipType
+  reason              String
+  proposedTenorMonths Int?
+  proposedRate        Decimal?       @db.Decimal(10, 5)
+  pauseDays           Int?
+  status              HardshipStatus @default(REQUESTED)
+  decisionNotes       String?
+  approvedByAdminId   String?
+  createdAt           DateTime       @default(now())
+  decidedAt           DateTime?
+  loanApplication     TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  history             HardshipStatusHistory[]
+
+  @@index([tenantId, borrowerId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, loanApplicationId, status])
+}
+
+model HardshipStatusHistory {
+  id                String         @id @default(cuid())
+  hardshipRequestId String
+  fromStatus        HardshipStatus
+  toStatus          HardshipStatus
+  changedByAdminId  String?
+  createdAt         DateTime       @default(now())
+  hardshipRequest   HardshipRequest @relation(fields: [hardshipRequestId], references: [id], onDelete: Cascade)
+
+  @@index([hardshipRequestId, createdAt])
+}
+
+model LoanDecisionPolicy {
+  id               String   @id @default(cuid())
+  tenantId         String
+  productId        String?
+  approveThreshold Int
+  manualReviewMin  Int
+  maxExposure      Decimal  @db.Decimal(18, 2)
+  hardBlockFlags   String[]
+  allowUnderReviewReeval Boolean @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, productId, isActive])
+}
+
+model LoanDecisionEvent {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  loanApplicationId   String
+  createdAt           DateTime @default(now())
+  actorType           String
+  actorId             String?
+  actorRole           String?
+  decision            String
+  reasonCodes         String[]
+  inputsJson          Json
+  recommendedLimit    Decimal? @db.Decimal(18, 2)
+  recommendedTenorDays Int?
+  loanApplication     TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, loanApplicationId])
+  @@unique([loanApplicationId, createdAt])
+}
+
+model FraudSignalEvent {
+  id                String                @id @default(cuid())
+  tenantId          String
+  loanApplicationId String                  @unique
+  createdAt         DateTime              @default(now())
+  signalType        String
+  severity          String
+  metadataJson      Json
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, createdAt])
+}
+
+model FraudSignal {
+  id                String          @id @default(cuid())
+  tenantId          String
+  borrowerId        String?
+  loanApplicationId String?
+  type              FraudSignalType
+  severity          FraudSeverity
+  source            String          @default("system")
+  scoreImpact       Int
+  metadataJson      Json
+  createdAt         DateTime        @default(now())
+  loanApplication   TenantLoanApplication? @relation(fields: [loanApplicationId], references: [id], onDelete: SetNull)
+  alerts            FraudAlertSignal[]
+
+  @@index([tenantId])
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, borrowerId])
+  @@index([tenantId, borrowerId, createdAt])
+  @@index([tenantId, loanApplicationId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+model FraudSignalAggregate {
+  id              String     @id @default(cuid())
+  tenantId        String
+  borrowerId      String
+  riskScore       Int        @default(0)
+  fraudLevel      FraudLevel @default(NONE)
+  flags           String[]
+  lastEvaluatedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([tenantId, borrowerId])
+  @@index([tenantId, fraudLevel, updatedAt])
+}
+
+model BorrowerHold {
+  id               String     @id @default(cuid())
+  tenantId         String
+  borrowerId       String
+  reason           String
+  createdByAdminId String?
+  createdBySystem  Boolean    @default(false)
+  status           HoldStatus @default(ACTIVE)
+  releasedAt       DateTime?
+  releaseReason    String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([tenantId, borrowerId, status])
+  @@index([tenantId, createdAt])
+}
+
+model FraudAlert {
+  id                String          @id @default(cuid())
+  tenantId          String
+  borrowerId        String?
+  loanApplicationId String?
+  status            FraudAlertStatus @default(OPEN)
+  severity          FraudSeverity
+  autoGenerated     Boolean         @default(true)
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  loanApplication   TenantLoanApplication? @relation(fields: [loanApplicationId], references: [id], onDelete: SetNull)
+  signals           FraudAlertSignal[]
+
+  @@index([tenantId, status, severity])
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, borrowerId])
+  @@index([tenantId, createdAt])
+}
+
+model FraudAlertSignal {
+  id           String     @id @default(cuid())
+  tenantId     String
+  fraudAlertId String
+  fraudSignalId String
+  createdAt    DateTime   @default(now())
+  fraudAlert   FraudAlert @relation(fields: [fraudAlertId], references: [id], onDelete: Cascade)
+  fraudSignal  FraudSignal @relation(fields: [fraudSignalId], references: [id], onDelete: Cascade)
+
+  @@unique([fraudAlertId, fraudSignalId])
+  @@index([tenantId, fraudAlertId])
+}
+
+model BorrowerBehaviorSnapshot {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  borrowerId          String
+  totalApplications   Int      @default(0)
+  totalApproved       Int      @default(0)
+  totalRejected       Int      @default(0)
+  totalDisbursedAmount Decimal @default(0) @db.Decimal(18, 2)
+  totalRepaidAmount   Decimal  @default(0) @db.Decimal(18, 2)
+  defaultCount        Int      @default(0)
+  lastApplicationAt   DateTime?
+  lastRepaymentAt     DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([tenantId, borrowerId])
+  @@index([tenantId, updatedAt])
+}
+
+model BorrowerBlacklist {
+  id              String   @id @default(cuid())
+  tenantId        String
+  identifierType  String
+  identifierValue String
+  reason          String
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, identifierType, identifierValue])
+  @@index([tenantId, identifierType])
+}
+
+model RiskPolicy {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  version    Int
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  createdBy  String?
+  configJson Json
+  evaluations RiskEvaluation[]
+
+  @@unique([tenantId, name, version])
+  @@index([tenantId, isActive])
+}
+
+model RiskEvaluation {
+  id                String            @id @default(cuid())
+  tenantId          String
+  loanApplicationId String                  @unique
+  borrowerId        String
+  policyId          String
+  trigger           RiskEngineTrigger
+  score             Int
+  decision          RiskDecision
+  reasonsJson       Json
+  inputSnapshotJson Json
+  createdAt         DateTime          @default(now())
+  createdBy         String?
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  policy            RiskPolicy        @relation(fields: [policyId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, borrowerId])
+  @@index([tenantId, createdAt])
+}
+
+model InterestAccrualAudit {
+  id                String                @id @default(cuid())
+  loanApplicationId String
+  tenantId          String
+  action            InterestAccrualAction
+  previousRate      Decimal?              @db.Decimal(10, 5)
+  newRate           Decimal?              @db.Decimal(10, 5)
+  reason            String?
+  performedById     String
+  createdAt         DateTime              @default(now())
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([loanApplicationId, createdAt])
+}
+
+model LoanApplicationRiskAssessment {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  loanApplicationId String                 @unique
+  score             Int
+  decision          RiskDecision
+  reasons           Json
+  createdAt         DateTime               @default(now())
+  createdByAdminId  String?
+  loanApplication   TenantLoanApplication  @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, decision])
+}
+
+model LoanApplicationRiskAssessmentHistory {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  score             Int
+  decision          RiskDecision
+  reasons           Json
+  createdAt         DateTime               @default(now())
+  createdByAdminId  String?
+  loanApplication   TenantLoanApplication  @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, loanApplicationId, createdAt])
+}
+
+model LoanApplicationHold {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  type              RiskHoldType
+  note              String?
+  isActive          Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  createdByAdminId  String
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolutionNote    String?
+  loanApplication   TenantLoanApplication  @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, isActive])
+}
+
+model LoanRepaymentScheduleItem {
+  id                String                      @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  installmentNumber Int
+  dueDate           DateTime
+  currency          String                      @default("NGN")
+  principalDue      Decimal                     @db.Decimal(18, 2)
+  interestDue       Decimal                     @db.Decimal(18, 2)
+  feesDue           Decimal                     @db.Decimal(18, 2)
+  totalDue          Decimal                     @db.Decimal(18, 2)
+  principalPaid     Decimal                     @default(0) @db.Decimal(18, 2)
+  interestPaid      Decimal                     @default(0) @db.Decimal(18, 2)
+  feesPaid          Decimal                     @default(0) @db.Decimal(18, 2)
+  totalPaid         Decimal                     @default(0) @db.Decimal(18, 2)
+  status            LoanRepaymentScheduleItemStatus @default(PENDING)
+  paidAt            DateTime?
+  overdueSince      DateTime?
+  isOverdue         Boolean                     @default(false)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  loanApplication   TenantLoanApplication       @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([loanApplicationId, installmentNumber])
+  @@index([tenantId])
+  @@index([loanApplicationId])
+  @@index([tenantId, dueDate])
+}
+
+model LoanRepayment {
+  id                String               @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  idempotencyKey    String
+  amount            Decimal              @db.Decimal(18, 2)
+  currency          String               @default("NGN")
+  postedAt          DateTime
+  reference         String?
+  channel           LoanRepaymentChannel @default(MANUAL)
+  allocationJson    Json
+  createdByAdminId  String?
+  createdAt         DateTime             @default(now())
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  cases             Case[]
+
+  @@index([tenantId])
+  @@index([loanApplicationId, postedAt])
+  @@index([tenantId, postedAt])
+  @@index([tenantId, createdAt])
+  @@unique([tenantId, idempotencyKey])
+}
+
+model DelinquencyEvent {
+  id          String                @id @default(cuid())
+  tenantId    String
+  loanId      String
+  dpd         Int
+  bucket      String
+  triggeredAt DateTime              @default(now())
+  loan        TenantLoanApplication @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([loanId])
+}
+
+model CollectionActivity {
+  id          String                @id @default(cuid())
+  tenantId    String
+  loanId      String
+  actionType  String
+  note        String?
+  performedBy String
+  createdAt   DateTime              @default(now())
+  loan        TenantLoanApplication @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([loanId])
+}
+
+model Case {
+  id                    String             @id @default(cuid())
+  tenantId              String
+  borrowerId            String?
+  loanApplicationId     String?
+  repaymentId           String?
+  disbursementId        String?
+  type                  CaseType
+  status                CaseStatus         @default(OPEN)
+  priority              CasePriority
+  subject               String
+  description           String
+  assignedToAdminUserId String?
+  slaDueAt              DateTime?
+  lastOverdueNotifiedAt DateTime?
+  resolutionCode        CaseResolutionCode?
+  resolutionNotes       String?
+  createdByAdminUserId  String?
+  createdByBorrowerId   String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  closedAt              DateTime?
+  loanApplication       TenantLoanApplication? @relation(fields: [loanApplicationId], references: [id], onDelete: SetNull)
+  repayment             LoanRepayment?     @relation(fields: [repaymentId], references: [id], onDelete: SetNull)
+  messages              CaseMessage[]
+  history               CaseStatusHistory[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, priority])
+  @@index([tenantId, assignedToAdminUserId])
+  @@index([tenantId, borrowerId])
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, slaDueAt])
+}
+
+model CaseMessage {
+  id                   String                @id @default(cuid())
+  tenantId             String
+  caseId               String
+  visibility           CaseMessageVisibility
+  message              String
+  createdByAdminUserId String?
+  createdByBorrowerId  String?
+  createdAt            DateTime              @default(now())
+  case                 Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, caseId])
+}
+
+model CaseStatusHistory {
+  id                   String     @id @default(cuid())
+  tenantId             String
+  caseId               String
+  fromStatus           CaseStatus?
+  toStatus             CaseStatus
+  changedByAdminUserId String?
+  changedByBorrowerId  String?
+  reason               String?
+  createdAt            DateTime   @default(now())
+  case                 Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, caseId, createdAt])
+}
+
+model SupportCase {
+  id          String   @id @default(cuid())
+  tenantId    String
+  loanId      String?
+  borrowerId  String?
+  title       String
+  status      String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  actions     SupportAction[]
+  notes       SupportNote[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, loanId, status])
+  @@index([tenantId, borrowerId, status])
+}
+
+model SupportNote {
+  id          String      @id @default(cuid())
+  caseId      String
+  case        SupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  tenantId    String
+  createdById String
+  body        String
+  evidenceUrl String?
+  createdAt   DateTime    @default(now())
+
+  @@index([tenantId, caseId, createdAt])
+}
+
+model SupportAction {
+  id            String              @id @default(cuid())
+  caseId        String
+  case          SupportCase         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  tenantId      String
+  type          SupportActionType
+  risk          SupportRiskLevel
+  status        SupportActionStatus @default(PENDING_APPROVAL)
+  payloadJson   Json
+  reason        String
+  requestedById String
+  approvedById  String?
+  executedById  String?
+  rejectedById  String?
+  decisionNote  String?
+  createdAt     DateTime            @default(now())
+  decidedAt     DateTime?
+  executedAt    DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  @@index([tenantId, caseId, createdAt])
+  @@index([tenantId, status, risk, createdAt])
+}
+
+model CollectionsCase {
+  id                   String                 @id @default(cuid())
+  tenantId             String
+  loanAccountId        String
+  borrowerId           String
+  openedAt             DateTime               @default(now())
+  status               CollectionsCaseStatus  @default(OPEN)
+  stage                CollectionsStage       @default(SOFT)
+  dpdAtOpen            Int                    @default(0)
+  currentDpd           Int                    @default(0)
+  outstandingAtOpen    Decimal                @default(0) @db.Decimal(18, 2)
+  currentOutstanding   Decimal                @default(0) @db.Decimal(18, 2)
+  assignedToAdminUserId String?
+  promiseToPayAt       DateTime?
+  lastContactAt        DateTime?
+  nextActionAt         DateTime?
+  resolvedAt           DateTime?
+  resolutionNote       String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  loanAccount          TenantLoanApplication  @relation(fields: [loanAccountId], references: [id], onDelete: Cascade)
+  actions              CollectionsAction[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, stage])
+  @@index([tenantId, assignedToAdminUserId, status])
+  @@index([tenantId, currentDpd])
+  @@index([tenantId, loanAccountId, status])
+}
+
+model CollectionsAction {
+  id               String                @id @default(cuid())
+  tenantId         String
+  caseId           String
+  actorAdminUserId String?
+  type             CollectionsActionType
+  note             String
+  metadata         Json?
+  createdAt        DateTime              @default(now())
+  case             CollectionsCase       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, caseId, createdAt])
+}
+
+model PenaltyRule {
+  id             String            @id @default(cuid())
+  tenantId       String
+  productId      String
+  kind           PenaltyRuleKind
+  rateBpsPerDay  Int?
+  flatAmount     Decimal?          @db.Decimal(18, 2)
+  graceDays      Int               @default(0)
+  capAmount      Decimal?          @db.Decimal(18, 2)
+  isPaused       Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  product        LoanProduct       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId])
+}
+
+model TenantPenaltyAccrual {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  loanAccountId  String
+  accruedForDate String
+  amount         Decimal                @db.Decimal(18, 2)
+  createdAt      DateTime               @default(now())
+  loanAccount    TenantLoanApplication  @relation(fields: [loanAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, loanAccountId, accruedForDate])
+  @@index([tenantId, loanAccountId, createdAt])
+}
+
+model TenantDisbursement {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  loanApplicationId String                  @unique
+  idempotencyKey    String
+  amount            Decimal                 @db.Decimal(18, 2)
+  currency          String                  @default("NGN")
+  method            TenantDisbursementMethod
+  status            TenantDisbursementStatus @default(PENDING)
+  provider          String?
+  providerReference String?
+  initiatedByAdminId String?
+  initiatedBySystem Boolean                 @default(false)
+  processedAt       DateTime?
+  failureReason     String?
+  reference         String?
+  disbursedAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  loanApplication   TenantLoanApplication   @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  history           TenantDisbursementStatusHistory[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, disbursedAt])
+  @@index([tenantId, createdAt])
+  @@unique([tenantId, idempotencyKey])
+  @@unique([tenantId, providerReference])
+}
+
+model CapitalPool {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  type        CapitalPoolType
+  status      CapitalPoolStatus @default(ACTIVE)
+  currency    String            @default("NGN")
+  externalRef String?
+  rulesJson   Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  allocations CapitalAllocation[]
+  snapshots   CapitalPoolBalanceSnapshot[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model CapitalPoolBalanceSnapshot {
+  id        String      @id @default(cuid())
+  tenantId  String
+  poolId    String
+  asOfDate  DateTime
+  available Decimal     @db.Decimal(18, 2)
+  deployed  Decimal     @db.Decimal(18, 2)
+  repaid    Decimal     @db.Decimal(18, 2)
+  losses    Decimal     @db.Decimal(18, 2)
+  createdAt DateTime    @default(now())
+  pool      CapitalPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, poolId, asOfDate])
+  @@unique([poolId, asOfDate])
+}
+
+model PortfolioDailySnapshot {
+  id               String   @id @default(cuid())
+  tenantId         String
+  date             DateTime
+  activeLoanCount  Int      @default(0)
+  outstandingTotal Decimal  @default(0) @db.Decimal(18, 2)
+  par30Outstanding Decimal  @default(0) @db.Decimal(18, 2)
+  par90Outstanding Decimal  @default(0) @db.Decimal(18, 2)
+  disbursedAmount  Decimal  @default(0) @db.Decimal(18, 2)
+  repaidAmount     Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt        DateTime @default(now())
+
+  @@unique([tenantId, date])
+  @@index([tenantId, date])
+}
+
+model CapitalAllocation {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  poolId          String
+  loanApplicationId String                @unique
+  status          CapitalAllocationStatus @default(RESERVED)
+  reservedAmount  Decimal                 @default(0) @db.Decimal(18, 2)
+  deployedAmount  Decimal                 @default(0) @db.Decimal(18, 2)
+  releasedAmount  Decimal                 @default(0) @db.Decimal(18, 2)
+  writtenOffAmount Decimal                @default(0) @db.Decimal(18, 2)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  pool            CapitalPool             @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  loanApplication TenantLoanApplication   @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, poolId])
+  @@index([tenantId, loanApplicationId])
+  @@index([tenantId, status, createdAt])
+  @@unique([tenantId, loanApplicationId])
+}
+
+model TenantDisbursementStatusHistory {
+  id             String                   @id @default(cuid())
+  tenantId       String
+  disbursementId String
+  loanId         String
+  fromStatus     TenantDisbursementStatus?
+  toStatus       TenantDisbursementStatus
+  note           String?
+  actorType      TenantDisbursementActorType
+  actorId        String?
+  createdAt      DateTime                 @default(now())
+  disbursement   TenantDisbursement       @relation(fields: [disbursementId], references: [id], onDelete: Cascade)
+  loanApplication TenantLoanApplication   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([disbursementId, createdAt])
+  @@index([loanId, createdAt])
+}
+
+model TenantLedgerAccount {
+  id            String                    @id @default(cuid())
+  tenantId      String
+  code          TenantLedgerAccountCode
+  name          String
+  type          LedgerAccountType         @default(ASSET)
+  normalBalance TenantLedgerNormalBalance
+  currency      String                    @default("NGN")
+  isSystem      Boolean                   @default(true)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  lines         TenantLedgerLine[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@index([tenantId, createdAt])
+}
+
+model TenantLedgerEntry {
+  id             String                @id @default(cuid())
+  tenantId       String
+  occurredAt     DateTime
+  type           TenantLedgerEntryType
+  idempotencyKey String
+  referenceType  String
+  referenceId    String
+  createdBy      String?
+  reversalOfEntryId String?
+  memo           String?
+  createdAt      DateTime              @default(now())
+  lines          TenantLedgerLine[]
+
+  @@index([tenantId, occurredAt])
+  @@index([referenceType, referenceId])
+  @@index([tenantId, referenceType, referenceId])
+  @@unique([tenantId, idempotencyKey])
+}
+
+model TenantLedgerLine {
+  id        String                @id @default(cuid())
+  tenantId  String
+  entryId   String
+  accountId String
+  direction TenantLedgerDirection
+  amount    Decimal               @db.Decimal(18, 2)
+  amountMinor BigInt              @default(0)
+  currency String                 @default("NGN")
+  createdAt DateTime              @default(now())
+  entry     TenantLedgerEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account   TenantLedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([entryId])
+  @@index([accountId])
+}
+
+model TenantRepaymentSchedule {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  installmentNo     Int
+  dueDate           DateTime
+  principalDue      Decimal                 @db.Decimal(18, 2)
+  interestDue       Decimal                 @db.Decimal(18, 2)
+  feesDue           Decimal                 @db.Decimal(18, 2)
+  totalDue          Decimal                 @db.Decimal(18, 2)
+  status            TenantRepaymentScheduleStatus @default(DUE)
+  paidAt            DateTime?
+  createdAt         DateTime                @default(now())
+  loanApplication   TenantLoanApplication   @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([loanApplicationId, installmentNo])
+  @@index([tenantId, dueDate])
+}
+
+model TenantRepayment {
+  id                String               @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  idempotencyKey    String
+  amount            Decimal              @db.Decimal(18, 2)
+  currency          String               @default("NGN")
+  method            TenantRepaymentMethod
+  reference         String?
+  paidAt            DateTime
+  createdAt         DateTime             @default(now())
+  loanApplication   TenantLoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, paidAt])
+  @@index([loanApplicationId, paidAt])
+  @@unique([tenantId, idempotencyKey])
+}
+
+model LoanApplicationStatusHistory {
+  id                String                      @id @default(cuid())
+  tenantId          String
+  loanApplicationId String
+  fromStatus        TenantLoanApplicationStatus?
+  toStatus          TenantLoanApplicationStatus
+  note              String?
+  changedByUserId   String?
+  changedAt         DateTime                    @default(now())
+  loanApplication   TenantLoanApplication       @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([loanApplicationId])
+  @@index([loanApplicationId, changedAt])
+  @@index([tenantId, loanApplicationId, changedAt])
 }
 
 model TenantLoanApplicationEvent {
@@ -600,6 +1770,59 @@ model TenantLoanApplicationEvent {
 
   @@index([loanApplicationId, createdAt])
   @@index([adminId, createdAt])
+}
+
+model LoanProduct {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  name                String
+  status              ProductStatus       @default(DRAFT)
+  currency            String              @default("NGN")
+  minPrincipal        Int
+  maxPrincipal        Int
+  minTenorDays        Int
+  maxTenorDays        Int
+  interestType        InterestType
+  interestRateBps     Int
+  repaymentFrequency  RepaymentFrequency
+  graceDays           Int                 @default(0)
+  allowEarlyRepayment Boolean            @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fees                LoanProductFee[]
+  versions            LoanProductVersion[]
+  penaltyRules        PenaltyRule[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model LoanProductFee {
+  id            String     @id @default(cuid())
+  loanProductId String
+  name          String
+  type          FeeType
+  amount        Int
+  applyAt       FeeApplyAt
+  createdAt     DateTime   @default(now())
+  loanProduct   LoanProduct @relation(fields: [loanProductId], references: [id], onDelete: Cascade)
+
+  @@index([loanProductId])
+}
+
+model LoanProductVersion {
+  id            String     @id @default(cuid())
+  tenantId      String
+  loanProductId String
+  version       Int
+  snapshotJson  Json
+  createdAt     DateTime   @default(now())
+  loanProduct   LoanProduct @relation(fields: [loanProductId], references: [id], onDelete: Cascade)
+
+  @@unique([loanProductId, version])
+  @@index([tenantId, createdAt])
 }
 
 model UnderwritingCase {
@@ -789,6 +2012,312 @@ model Payment {
   @@unique([provider, providerRef])
 }
 
+model PaymentIntent {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  reference           String?             @unique
+  direction           PaymentDirection
+  provider            PaymentProvider
+  status              PaymentIntentStatus @default(CREATED)
+  currency            String
+  amountMinor         Int
+  feeMinor            Int?
+  netMinor            Int?
+  borrowerId          String?
+  loanId              String?
+  repaymentScheduleId String?
+  disbursementId      String?
+  providerReference   String?
+  providerIntentId    String?
+  providerCustomerId  String?
+  providerRawInit     Json?
+  providerRawVerify   Json?
+  idempotencyKey      String
+  mandateId           String?
+  createdByAdminId    String?
+  createdByBorrowerId String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  events              PaymentEvent[]
+  histories           PaymentIntentHistory[]
+  payoutIntents       PayoutIntent[]
+  mandate             Mandate?            @relation(fields: [mandateId], references: [id], onDelete: SetNull)
+  mandateDebit        MandateDebit?
+
+  @@index([tenantId, status, direction])
+  @@unique([tenantId, idempotencyKey])
+  @@unique([provider, providerReference])
+}
+
+model BorrowerPayoutProfile {
+  id             String          @id @default(cuid())
+  tenantId       String
+  borrowerId     String
+  provider       PaymentProvider
+  recipientCode  String
+  bankCode       String
+  accountNumber  String
+  accountName    String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  payoutIntents  PayoutIntent[]
+
+  @@unique([tenantId, borrowerId, provider])
+  @@index([tenantId, createdAt])
+}
+
+model PayoutIntent {
+  id                    String            @id @default(cuid())
+  tenantId              String
+  borrowerId            String
+  loanId                String
+  amountMinor           Int
+  currency              String            @default("NGN")
+  status                PayoutIntentStatus @default(PENDING)
+  provider              PaymentProvider
+  paymentIntentId       String?
+  providerTransferCode  String?
+  providerReference     String?
+  recipientCode         String
+  metadata              Json?
+  idempotencyKey        String
+  lastError             String?
+  verifiedAt            DateTime?
+  createdByAdminId      String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  paymentIntent         PaymentIntent?    @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  recipientProfileId    String?
+  recipientProfile      BorrowerPayoutProfile? @relation(fields: [recipientProfileId], references: [id], onDelete: SetNull)
+  events                PaymentEvent[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, loanId, createdAt])
+  @@unique([tenantId, idempotencyKey])
+  @@unique([provider, providerTransferCode])
+  @@unique([provider, providerReference])
+}
+
+model PaymentEvent {
+  id              String           @id @default(cuid())
+  tenantId        String
+  intentId        String
+  payoutId        String?
+  type            PaymentEventType
+  normalizedType  String?
+  providerEventId String?
+  provider        PaymentProvider
+  raw             Json
+  receivedAt      DateTime         @default(now())
+  processedAt     DateTime?
+  intent          PaymentIntent    @relation(fields: [intentId], references: [id], onDelete: Cascade)
+  payout          PayoutIntent?    @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, intentId])
+  @@index([tenantId, payoutId])
+  @@unique([provider, providerEventId])
+}
+
+model PaymentIntentHistory {
+  id         String              @id @default(cuid())
+  tenantId   String
+  intentId   String
+  fromStatus PaymentIntentStatus?
+  toStatus   PaymentIntentStatus
+  reason     String?
+  actorType  String?
+  actorId    String?
+  createdAt  DateTime            @default(now())
+  intent     PaymentIntent       @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, intentId, createdAt])
+}
+
+model Mandate {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  borrowerId          String
+  loanId              String?
+  provider            PaymentProvider
+  status              MandateStatus @default(PENDING)
+  authorizationCode   String?
+  customerCode        String?
+  signatureHash       String?
+  maxAmount           Decimal?      @db.Decimal(18, 2)
+  startAt             DateTime?
+  endAt               DateTime?
+  nextDebitAt         DateTime?
+  frequency           String?
+  providerMandateRef  String?       @unique
+  lastDebitAt         DateTime?
+  lastDebitStatus     PaymentIntentStatus?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  borrower            Borrower      @relation(fields: [borrowerId], references: [id], onDelete: Restrict)
+  loan                TenantLoanApplication? @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  debits              MandateDebit[]
+  paymentIntents      PaymentIntent[]
+
+  @@index([tenantId, borrowerId])
+  @@index([tenantId, status])
+  @@index([tenantId, loanId])
+}
+
+model MandateDebit {
+  id               String              @id @default(cuid())
+  tenantId         String
+  mandateId        String
+  paymentIntentId  String?              @unique
+  status           PaymentIntentStatus @default(PENDING)
+  amount           Decimal             @db.Decimal(18, 2)
+  currency         String              @default("NGN")
+  scheduledAt      DateTime
+  attemptedAt      DateTime?
+  succeededAt      DateTime?
+  failureReason    String?
+  attemptCount     Int                 @default(0)
+  maxAttempts      Int                 @default(3)
+  nextAttemptAt    DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  mandate          Mandate             @relation(fields: [mandateId], references: [id], onDelete: Restrict)
+  paymentIntent    PaymentIntent?      @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, mandateId, status])
+  @@index([tenantId, scheduledAt, status])
+}
+
+model ReconciliationRun {
+  id                 String                  @id @default(cuid())
+  tenantId           String
+  type               ReconciliationRunType
+  status             ReconciliationRunStatus @default(RUNNING)
+  startedAt          DateTime                @default(now())
+  finishedAt         DateTime?
+  triggeredByAdminId String?
+  metadata           Json?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  issues             ReconciliationIssue[]
+  records            ReconciliationRecord[]
+
+  @@index([tenantId, type, status])
+  @@index([tenantId, startedAt])
+}
+
+model ReconciliationRecord {
+  id                   String                         @id @default(cuid())
+  tenantId             String
+  runId                String?
+  provider             String
+  referenceType        String
+  referenceId          String
+  providerRef          String?
+  settlementBatchId    String?
+  amountMinor          BigInt                         @default(0)
+  currency             String                         @default("NGN")
+  status               ReconciliationStatus           @default(MATCHED)
+  mismatchReason       String?
+  suspenseLedgerEntryId String?
+  resolvedAt           DateTime?
+  resolvedByAdminId    String?
+  resolutionType       ReconciliationResolutionType?
+  resolutionNote       String?
+  metadata             Json?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+  run                  ReconciliationRun?             @relation(fields: [runId], references: [id], onDelete: SetNull)
+  settlementBatch      SettlementBatch?               @relation(fields: [settlementBatchId], references: [id], onDelete: SetNull)
+  histories            ReconciliationResolutionHistory[]
+
+  @@unique([tenantId, provider, referenceType, referenceId])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, providerRef])
+  @@index([tenantId, settlementBatchId])
+}
+
+model ReconciliationResolutionHistory {
+  id               String                         @id @default(cuid())
+  reconciliationId String
+  fromStatus       ReconciliationStatus
+  toStatus         ReconciliationStatus
+  resolutionType   ReconciliationResolutionType?
+  note             String?
+  actedByAdminId   String?
+  createdAt        DateTime                       @default(now())
+  reconciliation   ReconciliationRecord           @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  @@index([reconciliationId, createdAt])
+}
+
+model SettlementBatch {
+  id            String                 @id @default(cuid())
+  tenantId      String
+  provider      String
+  settlementDate DateTime
+  currency      String                 @default("NGN")
+  totalAmount   Decimal                @default(0) @db.Decimal(18, 2)
+  status        SettlementBatchStatus  @default(OPEN)
+  closedAt      DateTime?
+  closedByAdminId String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  records       ReconciliationRecord[]
+
+  @@unique([tenantId, provider, settlementDate])
+  @@index([tenantId, status, settlementDate])
+}
+
+model ReconciliationJobRun {
+  id            String                    @id @default(cuid())
+  tenantId      String
+  provider      String
+  dateFrom      DateTime
+  dateTo        DateTime
+  status        ReconciliationJobRunStatus @default(RUNNING)
+  matchedCount  Int                       @default(0)
+  mismatchCount Int                       @default(0)
+  suspenseCount Int                       @default(0)
+  createdCount  Int                       @default(0)
+  attemptCount  Int                       @default(1)
+  errorMessage  String?
+  startedAt     DateTime                  @default(now())
+  finishedAt    DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@unique([tenantId, provider, dateFrom, dateTo])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, startedAt])
+}
+
+model ReconciliationIssue {
+  id                   String                    @id @default(cuid())
+  runId                String
+  tenantId             String
+  category             ReconciliationIssueCategory
+  severity             ReconciliationIssueSeverity
+  entityType           ReconciliationEntityType
+  entityId             String
+  providerRef          String?
+  expected             Json?
+  actual               Json?
+  expectedHash         String
+  status               ReconciliationIssueStatus @default(OPEN)
+  resolutionNote       String?
+  acknowledgedByAdminId String?
+  resolvedByAdminId    String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  run                  ReconciliationRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, providerRef])
+  @@index([runId])
+  @@unique([tenantId, category, entityType, entityId, providerRef, expectedHash])
+}
+
 model LoanBalance {
   id                         String   @id @default(cuid())
   loanId                     String   @unique
@@ -840,6 +2369,8 @@ model RepaymentAllocation {
   @@index([bucket])
 }
 
+/// @deprecated Legacy lender-loan penalty accrual table.
+/// Canonical penalty accrual storage is TenantPenaltyAccrual.
 model PenaltyAccrual {
   id             String       @id @default(cuid())
   loanId         String
@@ -857,48 +2388,64 @@ model PenaltyAccrual {
 
 model WebhookEvent {
   id             String             @id @default(cuid())
+  tenantId       String?
   provider       PaymentProvider
   eventType      String?
+  providerEventId String?
+  reference      String?
   signature      String?
   signatureValid Boolean
   status         WebhookEventStatus @default(RECEIVED)
   payload        Json
   paymentId      String?
   processedAt    DateTime?
+  processingError String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   payment        Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId, createdAt])
+  @@index([provider, providerEventId])
   @@index([provider, eventType, createdAt])
+  @@index([provider, reference, createdAt])
   @@index([status, createdAt])
   @@index([paymentId])
+  @@unique([provider, providerEventId])
 }
 
 model LedgerAccount {
   id        String            @id @default(cuid())
-  code      String            @unique
+  tenantId  String            @default("")
+  code      String
   name      String
   type      LedgerAccountType
   isActive  Boolean           @default(true)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
-  lines     JournalLine[]
+  lines     JournalLine[]      @relation("JournalLineLedgerAccount")
+  accountLines JournalLine[]   @relation("JournalLineAccount")
 
+  @@unique([tenantId, code])
   @@index([type, isActive])
 }
 
 model JournalEntry {
-  id          String        @id @default(cuid())
-  description String?
-  reference   String?
-  requestId   String?
-  postedAt    DateTime      @default(now())
-  createdAt   DateTime      @default(now())
-  lines       JournalLine[]
-  disbursement Disbursement?
-  repayments  Repayment[]
+  id            String        @id @default(cuid())
+  tenantId      String        @default("")
+  referenceType String        @default("UNSPECIFIED")
+  referenceId   String?
+  description   String?
+  createdBy     String?
+  reference     String?
+  requestId     String?
+  postedAt      DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  lines         JournalLine[]
+  disbursement  Disbursement?
+  repayments    Repayment[]
   penaltyAccruals PenaltyAccrual[]
 
+  @@index([tenantId, createdAt])
   @@index([postedAt])
   @@index([reference])
   @@index([requestId])
@@ -906,16 +2453,23 @@ model JournalEntry {
 
 model JournalLine {
   id              String          @id @default(cuid())
+  tenantId        String          @default("")
   journalEntryId  String
+  accountId       String?
   ledgerAccountId String
+  debitMinor      Int             @default(0)
+  creditMinor     Int             @default(0)
   entryType       JournalLineType
   amountKobo      Int
   description     String?
   createdAt       DateTime        @default(now())
   journalEntry    JournalEntry    @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  ledgerAccount   LedgerAccount   @relation(fields: [ledgerAccountId], references: [id], onDelete: Restrict)
+  account         LedgerAccount?  @relation("JournalLineAccount", fields: [accountId], references: [id])
+  ledgerAccount   LedgerAccount   @relation("JournalLineLedgerAccount", fields: [ledgerAccountId], references: [id], onDelete: Restrict)
 
+  @@index([tenantId, createdAt])
   @@index([journalEntryId])
+  @@index([accountId])
   @@index([ledgerAccountId])
   @@index([entryType])
 }
@@ -923,6 +2477,7 @@ model JournalLine {
 enum IdempotencyStatus {
   PENDING
   COMPLETED
+  FAILED
 }
 
 enum FileStatus {
@@ -951,9 +2506,14 @@ enum AdminStatus {
 }
 
 enum LoanApplicationStatus {
+  DRAFT
   SUBMITTED
   UNDER_REVIEW
+  REQUESTED_DOCUMENTS
   APPROVED
+  DISBURSED
+  REPAID
+  DEFAULTED
   REJECTED
 }
 
@@ -981,6 +2541,7 @@ enum LedgerAccountType {
   ASSET
   LIABILITY
   EQUITY
+  REVENUE
   INCOME
   EXPENSE
 }
@@ -1003,14 +2564,57 @@ enum PaymentPurpose {
 
 enum PaymentProvider {
   PAYSTACK
+  FLUTTERWAVE
+  MONNIFY
+  MANUAL
+}
+
+enum PaymentDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum PayoutIntentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum PaymentEventType {
+  WEBHOOK
+  VERIFY
+  MANUAL
+  SYSTEM
 }
 
 enum PaymentStatus {
   INITIATED
   PENDING
+  REQUIRES_ACTION
+  SUCCESS
   SUCCEEDED
   FAILED
   CANCELLED
+  REFUNDED
+}
+
+enum MandateStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+  FAILED
 }
 
 enum WebhookEventStatus {
@@ -1032,6 +2636,31 @@ enum NotificationChannel {
   EMAIL
 }
 
+enum NotificationAudienceType {
+  BORROWER
+  ADMIN
+}
+
+enum NotificationDeliveryChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum NotificationRecordStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
 enum NotificationStatus {
   SENT
   FAILED
@@ -1049,17 +2678,28 @@ enum LenderOnboardingStatus {
 }
 
 enum JobType {
-  OVERDUE_SCAN
-  PENALTY_ACCRUAL_DAILY
-  DAILY_AGGREGATE_BUILD
+  ACCRUE_INTEREST
+  RECALC_BALANCES
+  SEND_NOTIFICATION
+  COLLECTIONS_ESCALATION
+  RISK_REEVALUATION
+  LEDGER_RECONCILE
+  INTEGRITY_SCAN
+  PROCESS_WEBHOOK_EVENT
+  MANDATE_DEBIT
 }
 
 enum JobStatus {
   PENDING
   PROCESSING
-  COMPLETED
+  SUCCEEDED
   FAILED
-  DEAD
+  DEAD_LETTER
+}
+
+enum SystemIntegrityStatus {
+  OK
+  FAILED
 }
 
 enum UnderwritingCaseStatus {
@@ -1079,14 +2719,301 @@ enum TenantLoanApplicationStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
+  REQUESTED_DOCUMENTS
   APPROVED
-  REJECTED
+  READY_FOR_DISBURSEMENT
   DISBURSED
+  OVERDUE
+  WRITTEN_OFF
+  SETTLED
+  REPAID
+  DEFAULTED
+  REJECTED
+}
+
+enum DelinquencyStatus {
+  CURRENT
+  OVERDUE
+  CHARGED_OFF
 }
 
 enum TenantAdminRole {
+  CREDIT_OFFICER
+  RISK_MANAGER
+  OPS
+  COLLECTIONS
+  SYSTEM
   SUPER_ADMIN
   TENANT_ADMIN
+}
+
+enum TenantDisbursementMethod {
+  BANK_TRANSFER
+  WALLET
+  CASH
+  MANUAL
+}
+
+enum TenantDisbursementStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+enum TenantDisbursementActorType {
+  ADMIN
+  SYSTEM
+}
+
+enum TenantLedgerEntryType {
+  DISBURSEMENT
+  REPAYMENT
+  ACCRUAL
+  WRITE_OFF
+  ADJUSTMENT
+}
+
+enum TenantLedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum TenantLedgerNormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum TenantLedgerAccountCode {
+  CASH_MAIN
+  CASH
+  LOANS_RECEIVABLE
+  LOAN_PRINCIPAL_RECEIVABLE
+  LOAN_CLEARING
+  INTEREST_RECEIVABLE
+  FEES_RECEIVABLE
+  CASH_ON_HAND
+  BANK_CLEARING
+  WALLET_CLEARING
+  INTEREST_INCOME
+  FEE_INCOME
+  PENALTY_INCOME
+  WRITE_OFF_EXPENSE
+  SUSPENSE
+  CAPITAL_POOL_AVAILABLE
+  CAPITAL_POOL_DEPLOYED
+  CAPITAL_POOL_REPAID
+  CAPITAL_POOL_LOSSES
+}
+
+enum CapitalPoolType {
+  TREASURY
+  INVESTOR
+  CREDIT_LINE
+}
+
+enum CapitalPoolStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum CapitalAllocationStatus {
+  RESERVED
+  DEPLOYED
+  RELEASED
+  WRITTEN_OFF
+}
+
+enum TenantRepaymentScheduleStatus {
+  DUE
+  PAID
+  OVERDUE
+}
+
+enum TenantRepaymentMethod {
+  BANK_TRANSFER
+  CARD
+  WALLET
+  CASH
+}
+
+enum InterestType {
+  FLAT
+  REDUCING
+}
+
+enum RepaymentFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum FeeType {
+  FIXED
+  PERCENT_OF_PRINCIPAL
+}
+
+enum FeeApplyAt {
+  UPFRONT
+  PER_INSTALLMENT
+  END
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum CollectionsCaseStatus {
+  OPEN
+  IN_PROGRESS
+  PROMISE_TO_PAY
+  BROKEN_PTP
+  RESOLVED
+  CLOSED
+  WRITTEN_OFF
+}
+
+enum CollectionsStage {
+  SOFT
+  FIELD
+  LEGAL
+}
+
+enum CollectionsActionType {
+  CALL
+  SMS
+  WHATSAPP
+  EMAIL
+  VISIT
+  NOTE
+  PTP_SET
+  PTP_BROKEN
+  DISPUTE
+  WAIVER
+  WRITE_OFF
+  OTHER
+}
+
+enum PenaltyRuleKind {
+  DAILY_PERCENT
+  FLAT
+}
+
+enum ReconciliationRunType {
+  PAYMENT
+  DISBURSEMENT
+  SETTLEMENT
+}
+
+enum ReconciliationRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ReconciliationIssueCategory {
+  MISSING_LEDGER
+  DUPLICATE_LEDGER
+  AMOUNT_MISMATCH
+  STATUS_MISMATCH
+  UNKNOWN_REFERENCE
+  FEE_MISMATCH
+}
+
+enum ReconciliationIssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReconciliationEntityType {
+  PAYMENT
+  DISBURSEMENT
+}
+
+enum ReconciliationIssueStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  MISMATCH
+  SUSPENSE
+  RESOLVED
+  WRITE_OFF
+}
+
+enum ReconciliationResolutionType {
+  MANUAL_ADJUSTMENT
+  WRITE_OFF
+  PROVIDER_ERROR
+  INTERNAL_ERROR
+  DUPLICATE
+  REFUND
+}
+
+enum SettlementBatchStatus {
+  OPEN
+  CLOSED
+}
+
+enum ReconciliationJobRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum RiskDecision {
+  APPROVE
+  REVIEW
+  DECLINE
+}
+
+enum RiskEngineTrigger {
+  AUTO_ON_SUBMISSION
+  MANUAL_ADMIN
+  SYSTEM_REEVAL
+}
+
+enum RiskHoldType {
+  FRAUD_SUSPECTED
+  KYC_MISSING
+  DOCUMENTS_MISSING
+  POLICY_VIOLATION
+  MANUAL_REVIEW
+  COLLECTIONS_REVIEW
+  SYSTEM_VELOCITY
+}
+
+enum LoanRepaymentScheduleItemStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum LoanRepaymentChannel {
+  MANUAL
+  BANK_TRANSFER
+  CARD
+  USSD
+  CASH
+}
+
+enum InterestAccrualAction {
+  PAUSED
+  RESUMED
+  RATE_OVERRIDE_SET
+  RATE_OVERRIDE_REMOVED
 }
 
 enum BlacklistEntryType {
@@ -1100,4 +3027,150 @@ enum RiskLevel {
   LOW
   MEDIUM
   HIGH
+}
+
+enum FraudSignalType {
+  MULTIPLE_APPLICATIONS_SHORT_WINDOW
+  DEVICE_MISMATCH
+  HIGH_RISK_SCORE
+  REPAYMENT_PATTERN_ANOMALY
+  GEO_MISMATCH
+  MANUAL_FLAG
+  LOGIN_FAILED
+  OTP_FAILED
+  DEVICE_CHANGED
+  MULTIPLE_ACCOUNTS_SUSPECTED
+  BANK_ACCOUNT_CHANGED
+  REPAYMENT_REVERSAL
+  CARD_CHARGEBACK
+  PAYMENT_VELOCITY_SPIKE
+  COLLECTIONS_ESCALATION
+  MANUAL_REVIEW_REQUESTED
+  ADMIN_OVERRIDE
+  IP_GEO_ANOMALY
+}
+
+enum FraudSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FraudAlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+  ESCALATED
+}
+
+enum FraudLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  SEVERE
+}
+
+enum HoldStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum CaseType {
+  COMPLAINT
+  DISPUTE
+  REQUEST
+}
+
+enum CaseStatus {
+  OPEN
+  IN_REVIEW
+  AWAITING_BORROWER
+  ESCALATED
+  RESOLVED
+  REJECTED
+  CLOSED
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CaseResolutionCode {
+  REFUND_ISSUED
+  WAIVER_GRANTED
+  PAYMENT_REVERSED
+  CORRECTION_MADE
+  NO_ACTION_REQUIRED
+  FRAUD_CONFIRMED
+  FRAUD_NOT_CONFIRMED
+  OTHER
+}
+
+enum SupportActionType {
+  PAUSE_INTEREST
+  RESUME_INTEREST
+  APPLY_WAIVER
+  APPLY_FEE
+  RESCHEDULE_PLAN
+  LEDGER_REVERSAL
+  NOTE
+}
+
+enum SupportActionStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  CANCELED
+}
+
+enum SupportRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseMessageVisibility {
+  INTERNAL
+  BORROWER
+}
+
+enum HardshipStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HardshipType {
+  PAYMENT_PAUSE
+  TENOR_EXTENSION
+  RATE_REDUCTION
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAIL
+}
+
+enum AuditActorType {
+  ADMIN
+  BORROWER
+  SYSTEM
+  TENANT_ADMIN
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
 }

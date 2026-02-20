@@ -10,6 +10,14 @@ export type ClientOptions = {
 
 type HeadersInput = Record<string, string | undefined>;
 
+export type AdminLoanApplicationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'DISBURSED';
+
 export class LoanAppSdkClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: FetchLike;
@@ -106,6 +114,38 @@ export class LoanAppSdkClient {
     return this.request<
       paths['/admin/borrowers/{id}/risk']['get']['responses'][200]['content']['application/json']
     >(`/admin/borrowers/${encodeURIComponent(id)}/risk`, 'GET', undefined, headers);
+  }
+
+  adminLogin(
+    body: { email: string; password: string; tenantSlug: string },
+    headers: HeadersInput = {}
+  ) {
+    return this.request<{ accessToken: string; refreshToken?: string; admin?: unknown }>(
+      '/admin/auth/login',
+      'POST',
+      body,
+      headers
+    );
+  }
+
+  listAdminLoanApplications(
+    params: { status?: AdminLoanApplicationStatus } = {},
+    headers: HeadersInput = {}
+  ) {
+    const query = params.status ? `?status=${encodeURIComponent(params.status)}` : '';
+    return this.request<{ items: unknown[] } | unknown[]>(`/admin/loan-applications${query}`, 'GET', undefined, headers);
+  }
+
+  getAdminLoanApplication(id: string, headers: HeadersInput = {}) {
+    return this.request<unknown>(`/admin/loan-applications/${encodeURIComponent(id)}`, 'GET', undefined, headers);
+  }
+
+  setAdminLoanApplicationStatus(
+    id: string,
+    body: { status: AdminLoanApplicationStatus; reason?: string },
+    headers: HeadersInput = {}
+  ) {
+    return this.request<unknown>(`/admin/loan-applications/${encodeURIComponent(id)}/status`, 'PATCH', body, headers);
   }
 
   private async request<T>(path: string, method: string, body?: unknown, headers: HeadersInput = {}): Promise<T> {

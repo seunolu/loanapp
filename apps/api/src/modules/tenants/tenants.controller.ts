@@ -3,6 +3,7 @@ import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nest
 import { ResolveTenantQueryDto } from './dto/resolve-tenant-query.dto';
 import { ResolveTenantResponseDto } from './dto/resolve-tenant-response.dto';
 import { TenantsService } from './tenants.service';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 
 @ApiTags('Tenants')
 @Controller('tenants')
@@ -10,6 +11,7 @@ export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
   @Get('resolve')
+  @RateLimit('PUBLIC_READ')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resolve tenant by slug' })
   @ApiOkResponse({

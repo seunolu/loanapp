@@ -407,7 +407,7 @@ export class AuthService {
     });
 
     const accessToken = sign(
-      { typ: 'borrower', phone: params.phone, sid: session.id, lid: params.lenderId },
+      { typ: 'borrower', phone: params.phone, sid: session.id, lid: params.lenderId, tenantId: params.lenderId },
       this.getRequiredString('JWT_ACCESS_SECRET'),
       {
         subject: params.borrowerId,

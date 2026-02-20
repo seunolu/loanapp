@@ -1,0 +1,6 @@
+ALTER TABLE "TenantAdminUser"
+ALTER COLUMN "role" SET DEFAULT 'CREDIT_OFFICER';
+
+UPDATE "TenantAdminUser"
+SET "role" = 'CREDIT_OFFICER'
+WHERE "role" = 'TENANT_ADMIN';

@@ -1,0 +1,9 @@
+export type PaymentEventType =
+  | 'PAYMENT_INITIALIZED'
+  | 'PAYMENT_SUCCEEDED'
+  | 'PAYMENT_FAILED'
+  | 'TRANSFER_SUCCEEDED'
+  | 'TRANSFER_FAILED';
+
+export type WebhookEventType = 'PAYSTACK_EVENT_RECEIVED' | 'PAYSTACK_SIGNATURE_INVALID';
+

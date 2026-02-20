@@ -1,0 +1,8 @@
+-- AlterEnum
+ALTER TYPE "JobType" ADD VALUE 'PENALTY_ACCRUAL_DAILY';
+
+-- AlterEnum
+ALTER TYPE "JobStatus" ADD VALUE 'DEAD';
+
+-- AlterTable
+ALTER TABLE "Job" ADD COLUMN "deadAt" TIMESTAMP(3);

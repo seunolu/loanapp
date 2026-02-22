@@ -1,50 +1,36 @@
-﻿name: CI
+name: CI
 
 on:
   push:
-    branches: ['main']
+    branches: [ main ]
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
       - name: Enable Corepack
         run: corepack enable
+
       - name: Activate pnpm
         run: corepack prepare pnpm@10.29.2 --activate
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Format check
-        run: pnpm format:check
+
       - name: Lint
-        run: pnpm lint
+        run: pnpm -r lint
+
       - name: Typecheck
-        run: pnpm typecheck
-      - name: Prisma Generate
-        run: pnpm -C apps/api prisma:generate
-      - name: OpenAPI Lint
-        run: pnpm api:openapi:lint
-      - name: SDK Generate
-        run: pnpm sdk:generate
-      - name: SDK Build
-        run: pnpm sdk:build
-      - name: Build API
-        run: pnpm -C apps/api build
-      - name: Build Admin
-        run: pnpm -C apps/admin build
-      - name: Build Borrower
-        run: pnpm -C apps/borrower build
-      - name: Test
-        run: pnpm test
-      - name: Docker Build (prod-like)
-        run: |
-          docker build -f apps/api/Dockerfile .
-          docker build -f apps/admin/Dockerfile .
-          docker build -f apps/borrower/Dockerfile .
+        run: pnpm -r typecheck

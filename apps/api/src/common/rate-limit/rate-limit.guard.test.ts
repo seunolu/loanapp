@@ -1,4 +1,4 @@
-import * as assert from 'node:assert/strict';
+﻿import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ExecutionContext, HttpException } from '@nestjs/common';
 import { RateLimitGuard } from './rate-limit.guard';
@@ -14,7 +14,7 @@ class FakeRedis {
   private readonly rows = new Map<string, number[]>();
   getClient() {
     return {
-      zremrangebyscore: async (key: string, _min: number, max: number) => {
+      zremrangebyscore: async (key: string, min: number, max: number) => {
         const values = this.rows.get(key) ?? [];
         this.rows.set(
           key,
@@ -28,9 +28,9 @@ class FakeRedis {
       },
       expire: async () => 1,
       zcard: async (key: string) => (this.rows.get(key) ?? []).length,
-      zrange: async (key: string) => {
+      zrange: async (key: string, ...args: any[]) => {
         const first = (this.rows.get(key) ?? []).sort((a, b) => a - b)[0];
-        return first == null ? [] : ['member', String(first)];
+        return first == null ? [] : ['String(score)', String(first)];
       }
     };
   }
@@ -52,9 +52,9 @@ test('RateLimitGuard composes tenant-aware key for authenticated calls', async (
   let observedKey = '';
   const client = redis.getClient();
   const originalAdd = client.zadd;
-  client.zadd = async (key: string, score: number, member: string) => {
+  client.zadd = async (key: string, score: number) => {
     observedKey = key;
-    return originalAdd.call(client, key, score, member);
+    return originalAdd.call(client, key, score);
   };
   const guard = new RateLimitGuard(
     new FakeReflector('GENERIC_API') as any,
@@ -88,4 +88,6 @@ test('RateLimitGuard returns 429 after policy max exceeded', async () => {
     (error: unknown) => error instanceof HttpException
   );
 });
+
+
 

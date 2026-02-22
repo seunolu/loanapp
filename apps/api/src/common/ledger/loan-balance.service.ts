@@ -50,10 +50,10 @@ export class LoanBalanceService {
     ]);
 
     for (const line of lines) {
-      const current = accum.get(line.account.code as TenantLedgerAccountCode) ?? new Prisma.Decimal(0);
+      const current = accum.get(line.account.code) ?? new Prisma.Decimal(0);
       const next =
         line.direction === TenantLedgerDirection.DEBIT ? current.plus(line.amount) : current.minus(line.amount);
-      accum.set(line.account.code as TenantLedgerAccountCode, next);
+      accum.set(line.account.code, next);
     }
 
     const principalOutstanding = Prisma.Decimal.max(

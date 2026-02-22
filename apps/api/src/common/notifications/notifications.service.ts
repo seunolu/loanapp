@@ -178,7 +178,7 @@ export class NotificationsService {
         templateKey: row.templateKey,
         title: row.title,
         body: row.body,
-        dataJson: row.dataJson as Prisma.JsonValue,
+        dataJson: row.dataJson,
         status: row.status,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),

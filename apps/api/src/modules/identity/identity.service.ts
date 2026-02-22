@@ -95,7 +95,7 @@ export class IdentityService {
     let similarity = 0;
     let riskScore = 100;
     let flags: string[] = ['PROVIDER_ERROR'];
-    let provider = 'NIBSS';
+    const provider = 'NIBSS';
 
     try {
       const providerResult = await this.bvnProvider.verify(input.bvn);

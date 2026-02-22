@@ -32,9 +32,7 @@ export class MeService {
       }
     });
 
-    const status = ((borrower as unknown as { status?: 'ACTIVE' | 'SUSPENDED' } | null)?.status ?? 'ACTIVE') as
-      | 'ACTIVE'
-      | 'SUSPENDED';
+    const status = ((borrower as unknown as { status?: 'ACTIVE' | 'SUSPENDED' } | null)?.status ?? 'ACTIVE');
 
     return {
       id: principal.borrowerId,

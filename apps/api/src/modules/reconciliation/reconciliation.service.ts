@@ -1344,7 +1344,7 @@ export class ReconciliationService {
 
   async upsertIssue(input: IssueInput): Promise<boolean> {
     const providerRef = input.providerRef?.trim() || '';
-    const expected = (input.expected ?? {}) as Prisma.InputJsonValue;
+    const expected = (input.expected ?? {});
     const expectedHash = hashExpected(input.expected ?? {});
     const existing = await this.prisma.reconciliationIssue.findUnique({
       where: {
@@ -1367,7 +1367,7 @@ export class ReconciliationService {
           severity: input.severity,
           status: ReconciliationIssueStatus.OPEN,
           expected,
-          actual: (input.actual ?? {}) as Prisma.InputJsonValue,
+          actual: (input.actual ?? {}),
           providerRef
         }
       });
@@ -1384,7 +1384,7 @@ export class ReconciliationService {
         entityId: input.entityId,
         providerRef,
         expected,
-        actual: (input.actual ?? {}) as Prisma.InputJsonValue,
+        actual: (input.actual ?? {}),
         expectedHash,
         status: ReconciliationIssueStatus.OPEN
       }

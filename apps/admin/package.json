@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint \"app/(admin)/dashboard/page.tsx\" \"app/(admin)/products/page.tsx\" \"app/(admin)/products/new/page.tsx\" \"app/(admin)/products/[id]/page.tsx\" \"app/(admin)/loan-applications/[id]/repayments/page.tsx\" \"app/(protected)/dashboard/loan-applications/page.tsx\" \"app/(protected)/dashboard/loan-applications/[id]/page.tsx\" \"app/(admin)/layout.tsx\" \"app/(protected)/layout.tsx\" \"src/components/layout/admin-shell.tsx\" \"src/components/layout/sidebar.tsx\" \"src/components/layout/topbar.tsx\" \"src/components/layout/page-header.tsx\" \"src/components/ui/data-table.tsx\" \"src/components/ui/empty-state.tsx\" \"src/components/ui/loading-skeleton.tsx\" \"src/components/ui/metric-card.tsx\" \"src/lib/navigation.ts\"",
+    "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -35,7 +35,7 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "autoprefixer": "^10.4.20",
-    "eslint": "^9.17.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.26",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",

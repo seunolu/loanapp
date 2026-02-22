@@ -4,7 +4,7 @@ import { Prisma, TenantLoanApplicationStatus } from '@prisma/client';
 import { PenaltyService } from './penalty.service';
 
 test('penalty accrual is idempotent by unique accrued date', async () => {
-  let accrualCreated = 0;
+  const accrualCreated = 0;
   const service = new PenaltyService(
     {
       tenantPenaltyAccrual: {

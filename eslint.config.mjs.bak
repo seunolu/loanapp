@@ -1,0 +1,80 @@
+﻿import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import js from "@eslint/js";
+import { FlatCompat } from "@eslint/eslintrc";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+
+/** @type {import("eslint").Linter.FlatConfig[]} */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+  recommendedConfig: js.configs.recommended,
+});
+
+export default [
+  // Global ignores for the whole monorepo
+  {
+    ignores: [
+      "**/node_modules/**",
+      "**/.expo/**",
+      "**/.expo-shared/**",
+      "**/.next/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/android/**",
+      "**/ios/**",
+      "**/coverage/**",
+      "**/*.d.ts",
+    ],
+  },
+
+  // Base JS recommended (repo-wide)
+  js.configs.recommended,
+
+  // ✅ Expo rules ONLY for mobile app (not API/admin/etc)
+  ...compat.extends("expo").map((c) => ({
+    ...c,
+    files: ["apps/mobile/**/*.{js,jsx,ts,tsx}"],
+  })),
+
+  // ✅ TypeScript rules for API + shared packages
+  {
+    files: ["apps/api/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+    },
+    rules: {
+      // Keep this sane for backend
+      "no-undef": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+
+      // If you want it strict later, turn it back on. For now, don't block CI.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+
+  // ✅ Relax ONLY tests/specs further (backend tests often use helpers/mocks)
+  {
+    files: [
+      "apps/api/**/*.test.ts",
+      "apps/api/**/*.spec.ts",
+      "apps/api/**/__tests__/**/*.ts",
+      "apps/api/test/**/*.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+];

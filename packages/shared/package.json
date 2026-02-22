@@ -1,12 +1,12 @@
 ﻿{
-  "name": "@repo/shared",
-  "private": true,
-  "version": "0.0.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "scripts": {
-    "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node -e \"console.log('no tests yet')\""
-  }
+    "name":  "@repo/shared",
+    "private":  true,
+    "version":  "0.0.0",
+    "main":  "src/index.ts",
+    "types":  "src/index.ts",
+    "scripts":  {
+                    "lint":  "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
+                    "typecheck":  "tsc -p tsconfig.json --noEmit",
+                    "test":  "node -e \"console.log(\u0027no tests yet\u0027)\""
+                }
 }

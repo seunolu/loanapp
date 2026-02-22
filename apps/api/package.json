@@ -9,7 +9,7 @@
     "jobs:schedule": "tsx src/common/jobs/scheduler.ts",
     "start": "node dist/main.js",
     "build": "nest build",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node -e \"console.log('tests added in later issues')\"",
     "prisma:generate": "prisma generate",

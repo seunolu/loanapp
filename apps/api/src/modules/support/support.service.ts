@@ -295,7 +295,7 @@ export class SupportService {
       status: SupportActionStatus;
     }
   ): Promise<void> {
-    const payload = (action.payloadJson ?? {}) as Record<string, unknown>;
+    const payload = (action.payloadJson ?? {});
     const supportCase = await (this.prisma as any).supportCase.findFirst({
       where: { id: action.caseId, tenantId: principal.tenantId }
     });

@@ -70,7 +70,7 @@ test('redis rate limit middleware blocks auth endpoint after threshold', async (
   }
 
   assert.ok(error instanceof HttpException);
-  const response = (error as HttpException).getResponse() as any;
+  const response = (error).getResponse() as any;
   assert.equal(response.error.code, 'RATE_LIMITED');
   assert.ok(Number(response.error.details.retryAfterSeconds) > 0);
 });

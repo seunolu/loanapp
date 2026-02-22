@@ -41,7 +41,7 @@ test('audit writer records event and redacts sensitive metadata', async () => {
   assert.equal(created.action, 'TEST_ACTION');
   assert.equal(created.requestId, 'req_1');
   assert.equal(created.ipAddress, '127.0.0.1');
-  assert.equal((created.metadataJson as any).token, '[REDACTED]');
-  assert.equal((created.metadataJson as any).nested.password, '[REDACTED]');
+  assert.equal((created.metadataJson).token, '[REDACTED]');
+  assert.equal((created.metadataJson).nested.password, '[REDACTED]');
 });
 

@@ -504,21 +504,21 @@ export type BorrowerCaseDetail = BorrowerCaseListItem & {
   loanApplicationId: string | null;
   repaymentId: string | null;
   disbursementId: string | null;
-  messages: Array<{
+  messages: {
     id: string;
     visibility: 'BORROWER';
     message: string;
     createdByAdminUserId: string | null;
     createdByBorrowerId: string | null;
     createdAt: string;
-  }>;
-  history: Array<{
+  }[];
+  history: {
     id: string;
     fromStatus: BorrowerCaseStatus | null;
     toStatus: BorrowerCaseStatus;
     reason: string | null;
     createdAt: string;
-  }>;
+  }[];
 };
 
 export async function listBorrowerCases(input?: {
@@ -593,13 +593,13 @@ export type BorrowerHardshipRequest = {
 };
 
 export type BorrowerHardshipDetail = BorrowerHardshipRequest & {
-  history: Array<{
+  history: {
     id: string;
     fromStatus: BorrowerHardshipStatus;
     toStatus: BorrowerHardshipStatus;
     changedByAdminId: string | null;
     createdAt: string;
-  }>;
+  }[];
 };
 
 export async function createHardshipRequest(input: {

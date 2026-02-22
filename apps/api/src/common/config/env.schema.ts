@@ -129,7 +129,13 @@ export const envSchema = z.object({
   COLLECTIONS_PENALTY_DAILY_RATE_BPS: z.coerce.number().int().min(0).max(10000).default(15),
   RECONCILIATION_JOB_ENABLED: z.enum(['true', 'false']).default('true'),
   RECONCILIATION_JOB_INTERVAL_MS: z.coerce.number().int().min(60000).max(86400000).default(86400000),
-  LEDGER_RECONCILE_JOB_ENABLED: z.enum(['true', 'false']).default('true')
-});
+  LEDGER_RECONCILE_JOB_ENABLED: z.enum(['true', 'false']).default('true'),
+  // --- Added for CI: typed env keys ---,
+  ADMIN_CONFIRMATION_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  WEBHOOK_ALLOWED_SKEW_SECONDS: z.coerce.number().int().nonnegative().default(300),
+  WEBHOOK_REPLAY_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
+})
+
 
 export type Env = z.infer<typeof envSchema>;
+

@@ -7,7 +7,7 @@ type IdentityStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'FAILED' | 'MANUAL
 const STORAGE_KEY = 'loanapp.mobile.kyc.checklist.v1';
 
 type KycContextValue = {
-  checklist: Array<{ key: KycStep; label: string; completed: boolean }>;
+  checklist: { key: KycStep; label: string; completed: boolean }[];
   percentComplete: number;
   markComplete: (step: KycStep) => Promise<void>;
   markPending: (step: KycStep) => Promise<void>;

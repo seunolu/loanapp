@@ -13,7 +13,7 @@ importers:
     devDependencies:
       '@redocly/cli':
         specifier: ^1.27.1
-        version: 1.34.6(ajv@8.17.1)
+        version: 1.34.6(ajv@6.12.6)
       '@types/node':
         specifier: ^20
         version: 20.19.33
@@ -23,6 +23,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.56.0
         version: 8.56.0(eslint@8.57.1)(typescript@5.9.3)
+      ajv:
+        specifier: 6.12.6
+        version: 6.12.6
       concurrently:
         specifier: ^9.1.2
         version: 9.2.1
@@ -10830,7 +10833,7 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  '@redocly/cli@1.34.6(ajv@8.17.1)':
+  '@redocly/cli@1.34.6(ajv@6.12.6)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/exporter-trace-otlp-http': 0.53.0(@opentelemetry/api@1.9.0)
@@ -10839,7 +10842,7 @@ snapshots:
       '@opentelemetry/semantic-conventions': 1.27.0
       '@redocly/config': 0.22.2
       '@redocly/openapi-core': 1.34.6(supports-color@10.2.2)
-      '@redocly/respect-core': 1.34.6(ajv@8.17.1)
+      '@redocly/respect-core': 1.34.6(ajv@6.12.6)
       abort-controller: 3.0.0
       chokidar: 3.6.0
       colorette: 1.4.0
@@ -10882,12 +10885,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@redocly/respect-core@1.34.6(ajv@8.17.1)':
+  '@redocly/respect-core@1.34.6(ajv@6.12.6)':
     dependencies:
       '@faker-js/faker': 7.6.0
       '@redocly/ajv': 8.11.2
       '@redocly/openapi-core': 1.34.6(supports-color@10.2.2)
-      better-ajv-errors: 1.2.0(ajv@8.17.1)
+      better-ajv-errors: 1.2.0(ajv@6.12.6)
       colorette: 2.0.20
       concat-stream: 2.0.0
       cookie: 0.7.2
@@ -12213,11 +12216,11 @@ snapshots:
 
   bcryptjs@2.4.3: {}
 
-  better-ajv-errors@1.2.0(ajv@8.17.1):
+  better-ajv-errors@1.2.0(ajv@6.12.6):
     dependencies:
       '@babel/code-frame': 7.29.0
       '@humanwhocodes/momoa': 2.0.4
-      ajv: 8.17.1
+      ajv: 6.12.6
       chalk: 4.1.2
       jsonpointer: 5.0.1
       leven: 3.1.0

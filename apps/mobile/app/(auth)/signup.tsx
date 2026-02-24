@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { Button } from '../../src/ui/Button';
 import { Card } from '../../src/ui/Card';
 import { Input } from '../../src/ui/Input';
@@ -16,10 +16,16 @@ export default function SignupScreen() {
   const [loading, setLoading] = React.useState(false);
 
   const onContinue = async () => {
-    setLoading(true);
-    await signup({ fullName, phone, password });
-    setLoading(false);
-    router.push('/otp' as any);
+    try {
+      setLoading(true);
+      await signup({ fullName, phone, password });
+      router.push('/otp' as any);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create account. Please try again.';
+      Alert.alert('Sign up failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

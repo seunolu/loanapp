@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { useAuth } from '../../src/providers/auth-provider';
 import { Button } from '../../src/ui/Button';
 import { Card } from '../../src/ui/Card';
@@ -15,10 +15,16 @@ export default function OtpScreen() {
   const [loading, setLoading] = React.useState(false);
 
   const onVerify = async () => {
-    setLoading(true);
-    await verifyOtp({ phone, code });
-    setLoading(false);
-    router.replace('/home' as any);
+    try {
+      setLoading(true);
+      await verifyOtp({ phone, code });
+      router.replace('/home' as any);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to verify OTP. Please try again.';
+      Alert.alert('Verification failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -19,10 +19,18 @@ export function Button({
   loading = false,
   disabled = false
 }: Props): React.JSX.Element {
+  return <ButtonWithRef label={label} onPress={onPress} variant={variant} loading={loading} disabled={disabled} />;
+}
+
+const ButtonWithRef = React.forwardRef<React.ElementRef<typeof Pressable>, Props>(function ButtonWithRef(
+  { label, onPress, variant = 'primary', loading = false, disabled = false },
+  ref
+) {
   const blocked = disabled || loading;
   const textColor = variant === 'primary' || variant === 'danger' ? colors.textInverse : colors.text;
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       disabled={blocked}
       style={({ pressed }) => [
@@ -36,7 +44,7 @@ export function Button({
       <Text style={[styles.label, { color: textColor }]}>{label}</Text>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   base: {
@@ -75,4 +83,3 @@ const variantStyles = StyleSheet.create({
     backgroundColor: colors.danger
   }
 });
-

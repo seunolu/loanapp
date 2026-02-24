@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import * as React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { Button } from '../../src/ui/Button';
 import { Card } from '../../src/ui/Card';
 import { Input } from '../../src/ui/Input';
@@ -15,10 +15,16 @@ export default function LoginScreen() {
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async () => {
-    setLoading(true);
-    await login({ phone, password });
-    setLoading(false);
-    router.replace('/home' as any);
+    try {
+      setLoading(true);
+      await login({ phone, password });
+      router.replace('/home' as any);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to log in. Please try again.';
+      Alert.alert('Login failed', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

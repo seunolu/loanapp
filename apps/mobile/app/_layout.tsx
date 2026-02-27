@@ -13,7 +13,9 @@ import { AuthProvider, useAuth } from '../src/providers/auth-provider';
 import { KycProvider } from '../src/providers/kyc-provider';
 import { AppQueryProvider } from '../src/providers/query-provider';
 import { TenantProvider } from '../src/tenant/tenant-context';
-import { AppLoading, ThemeProvider, Toast } from '../src/ui';
+import { REQUIRE_TENANT_SELECTION, ROUTE_GROUPS, ROUTES } from '../src/routing/guards';
+import { useTenant } from '../src/tenant/tenant-context';
+import { FullScreenLoader, ThemeProvider, Toast } from '../src/ui';
 
 type BootstrapState =
   | { phase: 'loading' }
@@ -50,7 +52,7 @@ function BootstrapGate({ children }: { children: React.ReactNode }): React.JSX.E
   }, []);
 
   if (state.phase === 'loading') {
-    return <AppLoading />;
+    return <FullScreenLoader message="Preparing your workspace..." />;
   }
   if (state.phase === 'error') {
     return <RootErrorScreen error={state.error} onRetry={retry} />;
@@ -61,6 +63,7 @@ function BootstrapGate({ children }: { children: React.ReactNode }): React.JSX.E
 
 function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { status } = useAuth();
+  const { tenantSlug, resolved } = useTenant();
   const router = useRouter();
   const segments = useSegments();
   const [showSessionExpired, setShowSessionExpired] = React.useState(false);
@@ -80,9 +83,11 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
     }
 
     const currentRoot = segments[0] ?? '';
-    const isProtected = currentRoot === '(app)';
-    const isAuthGroup = currentRoot === '(auth)' || currentRoot === 'auth';
-    const redirectKey = `${status}:${currentRoot}`;
+    const inTenantScreen = currentRoot === 'tenant';
+    const isProtected = currentRoot === ROUTE_GROUPS.app;
+    const isAuthGroup = currentRoot === ROUTE_GROUPS.auth || currentRoot === 'auth';
+    const requiresTenantSelection = REQUIRE_TENANT_SELECTION && status === 'authenticated' && !tenantSlug && resolved;
+    const redirectKey = `${status}:${currentRoot}:${tenantSlug}:${resolved}`;
 
     if (hasHandledRedirect.current === redirectKey) {
       return;
@@ -90,21 +95,27 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
 
     if (status === 'unauthenticated' && isProtected) {
       hasHandledRedirect.current = redirectKey;
-      router.replace('/(auth)/login');
+      router.replace(ROUTES.authLogin);
       return;
     }
 
     if (status === 'authenticated' && isAuthGroup) {
       hasHandledRedirect.current = redirectKey;
-      router.replace('/(app)/home');
+      router.replace(ROUTES.authLanding);
+      return;
+    }
+
+    if (requiresTenantSelection && !inTenantScreen) {
+      hasHandledRedirect.current = redirectKey;
+      router.replace(ROUTES.tenant);
       return;
     }
 
     hasHandledRedirect.current = null;
-  }, [router, segments, status]);
+  }, [resolved, router, segments, status, tenantSlug]);
 
   if (status === 'unknown') {
-    return <AppLoading />;
+    return <FullScreenLoader message="Preparing your workspace..." />;
   }
 
   return (

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useKycGate } from '../../../src/kyc/use-kyc-gate';
 import { Badge, Button, Card, Input, Screen, SectionHeader, colors, spacing, typography } from '../../../src/ui';
 import { initiateRepayment, setupMandate } from '../../../src/lib/api';
 
 export default function PayNowScreen() {
+  const { allowed } = useKycGate('FULL');
   const [loanId, setLoanId] = useState('');
   const [amount, setAmount] = useState('');
   const queryClient = useQueryClient();
@@ -34,6 +36,10 @@ export default function PayNowScreen() {
       await queryClient.invalidateQueries({ queryKey: ['borrower', 'mandates'] });
     }
   });
+
+  if (!allowed) {
+    return null;
+  }
 
   return (
     <Screen>
@@ -89,5 +95,4 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   error: { ...typography.caption, color: colors.danger }
 });
-
 

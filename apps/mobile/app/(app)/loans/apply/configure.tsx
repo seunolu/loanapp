@@ -1,12 +1,18 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useKycGate } from '../../../../src/kyc/use-kyc-gate';
 import { Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function ConfigureLoanScreen() {
+  const { allowed } = useKycGate('FULL');
   const [amount, setAmount] = React.useState(150000);
   const [tenor, setTenor] = React.useState(60);
   const totalRepayable = Math.round(amount * 1.08);
+
+  if (!allowed) {
+    return null;
+  }
 
   return (
     <Screen>
@@ -40,5 +46,4 @@ const styles = StyleSheet.create({
   summary: { ...typography.subtitle, color: colors.text },
   caption: { ...typography.body, color: colors.textMuted }
 });
-
 

@@ -2,10 +2,12 @@ import { Link } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useKycGate } from '../../../src/kyc/use-kyc-gate';
 import { Button, Card, Screen, SectionHeader, colors, typography } from '../../../src/ui';
 import { listMyMandates } from '../../../src/lib/api';
 
 export default function RepayIndexScreen() {
+  const { allowed } = useKycGate('FULL');
   const mandatesQuery = useQuery({
     queryKey: ['borrower', 'mandates'],
     queryFn: listMyMandates
@@ -14,6 +16,9 @@ export default function RepayIndexScreen() {
     () => (mandatesQuery.data ?? []).find((item) => item.status === 'ACTIVE'),
     [mandatesQuery.data]
   );
+  if (!allowed) {
+    return null;
+  }
 
   return (
     <Screen>
@@ -44,5 +49,4 @@ const styles = StyleSheet.create({
   metric: { ...typography.subtitle, color: colors.text },
   caption: { ...typography.body, color: colors.textMuted }
 });
-
 

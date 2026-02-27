@@ -1,10 +1,15 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { useKycGate } from '../../../../src/kyc/use-kyc-gate';
 import { Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function ReviewLoanScreen() {
+  const { allowed } = useKycGate('FULL');
   const [accepted, setAccepted] = React.useState(false);
+  if (!allowed) {
+    return null;
+  }
 
   return (
     <Screen>
@@ -46,5 +51,4 @@ const styles = StyleSheet.create({
   value: { ...typography.body, color: colors.text, fontWeight: '600' },
   body: { ...typography.body, color: colors.text }
 });
-
 

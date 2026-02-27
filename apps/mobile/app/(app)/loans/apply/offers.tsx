@@ -1,8 +1,14 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import { useKycGate } from '../../../../src/kyc/use-kyc-gate';
 import { Badge, Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function OffersScreen() {
+  const { allowed } = useKycGate('FULL');
+  if (!allowed) {
+    return null;
+  }
+
   return (
     <Screen>
       <SectionHeader title="Your Offer" subtitle="Based on your profile and history." />
@@ -25,5 +31,4 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }
 });
-
 

@@ -35,9 +35,14 @@ Android-first borrower app built with Expo + expo-router.
 - `pnpm -C apps/mobile typecheck`
 - `pnpm -C apps/mobile lint`
 
+## Local verification
+
+- `pnpm -C apps/mobile typecheck`
+- `pnpm -C apps/mobile lint`
+
 ## Auth flow test (end-to-end)
 
-1. Open app and go to `Welcome`.
+1. Open app and complete `Onboarding`.
 2. Create account or login (single-tenant borrower flow, no tenant picker).
 3. Enter OTP on verify screen.
 4. App stores tokens in `expo-secure-store` and routes to `/home`.

@@ -3,6 +3,7 @@ import { clearTokens, getTokens, setTokens, type SessionTokens } from '../auth/t
 
 const TENANT_SLUG_KEY = 'loanapp.mobile.tenant.slug';
 const DEVICE_ID_KEY = 'loanapp.mobile.device.id';
+const ONBOARDING_SEEN_KEY = 'loanapp.mobile.onboarding.seen';
 
 export async function getTenantSlug(): Promise<string | null> {
   return AsyncStorage.getItem(TENANT_SLUG_KEY);
@@ -28,6 +29,19 @@ export async function clearDeviceId(): Promise<void> {
   await AsyncStorage.removeItem(DEVICE_ID_KEY);
 }
 
+export async function getOnboardingSeen(): Promise<boolean> {
+  const value = await AsyncStorage.getItem(ONBOARDING_SEEN_KEY);
+  return value === 'true';
+}
+
+export async function setOnboardingSeen(seen = true): Promise<void> {
+  await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, seen ? 'true' : 'false');
+}
+
+export async function clearOnboardingSeen(): Promise<void> {
+  await AsyncStorage.removeItem(ONBOARDING_SEEN_KEY);
+}
+
 export async function getSessionTokens(): Promise<SessionTokens | null> {
   return getTokens();
 }
@@ -44,6 +58,7 @@ export async function clearLocalAppState(): Promise<void> {
   await Promise.all([
     clearTokens(),
     AsyncStorage.removeItem(TENANT_SLUG_KEY),
-    AsyncStorage.removeItem(DEVICE_ID_KEY)
+    AsyncStorage.removeItem(DEVICE_ID_KEY),
+    AsyncStorage.removeItem(ONBOARDING_SEEN_KEY)
   ]);
 }

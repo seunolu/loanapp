@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle, type AccessibilityProps } from 'react-native';
 import { Pressable, Text } from '../primitives';
 import { useTheme } from '../theme';
 
@@ -16,7 +16,7 @@ type ButtonProps = {
   loading?: boolean;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
-};
+} & Pick<AccessibilityProps, 'accessibilityLabel' | 'accessibilityHint' | 'accessibilityRole'>;
 
 export function Button({
   children,
@@ -27,7 +27,10 @@ export function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
-  style
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole
 }: ButtonProps): React.JSX.Element {
   const t = useTheme();
   const isBlocked = disabled || loading;
@@ -38,6 +41,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isBlocked}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityRole={accessibilityRole ?? 'button'}
       style={[
         styles.base,
         { borderRadius: t.radius.md, gap: t.spacing.sm, paddingHorizontal: t.spacing.lg },

@@ -1,15 +1,43 @@
 import { Redirect } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { useEffect, useState } from "react";
 import { useAuth } from "../src/providers/auth-provider";
+import { getOnboardingSeen } from "../src/lib/storage";
+import { FullScreenLoader } from "../src/ui";
 
 export default function Index() {
   const { status } = useAuth();
-  if (status === 'unknown') {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+  const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (status !== "unauthenticated") {
+      return () => {
+        active = false;
+      };
+    }
+    getOnboardingSeen()
+      .then((seen) => {
+        if (active) {
+          setOnboardingSeen(seen);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOnboardingSeen(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [status]);
+
+  if (status === "unknown" || (status === "unauthenticated" && onboardingSeen === null)) {
+    return <FullScreenLoader message="Preparing your workspace..." />;
   }
-  return <Redirect href={(status === 'authenticated' ? '/(app)/home' : '/(auth)/welcome') as any} />;
+
+  if (status === "authenticated") {
+    return <Redirect href={"/(app)/home" as any} />;
+  }
+
+  return <Redirect href={(onboardingSeen ? "/(auth)/login" : "/(auth)/onboarding") as any} />;
 }

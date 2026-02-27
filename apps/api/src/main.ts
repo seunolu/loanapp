@@ -95,6 +95,7 @@ async function bootstrap(): Promise<void> {
   const nodeEnv = configService.get('NODE_ENV', { infer: true });
   const apiPrefix = configService.get('API_PREFIX', { infer: true });
   const bodyLimit = configService.get('REQUEST_BODY_LIMIT', { infer: true });
+  const trustProxy = configService.get('TRUST_PROXY', { infer: true });
   const trustProxyHops = configService.get('TRUST_PROXY_HOPS', { infer: true });
   const corsCredentials = configService.get('CORS_ALLOW_CREDENTIALS', { infer: true });
   const corsOriginsCsv =
@@ -136,7 +137,7 @@ async function bootstrap(): Promise<void> {
     })
   );
   const expressApp = app.getHttpAdapter().getInstance();
-  expressApp.set('trust proxy', trustProxyHops);
+  expressApp.set('trust proxy', trustProxy ? trustProxyHops : false);
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) {
@@ -212,8 +213,11 @@ async function bootstrap(): Promise<void> {
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  const swaggerEnabled = configService.get('SWAGGER_ENABLED', { infer: true }) ?? nodeEnv !== 'production';
+  if (swaggerEnabled) {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  }
 
   const port = configService.get('PORT', { infer: true });
   const prisma = app.get(PrismaService);
@@ -242,6 +246,11 @@ async function bootstrap(): Promise<void> {
     dbConnected,
     timestamp: new Date().toISOString()
   });
+
+  if (nodeEnv === 'production' && !redisConnected) {
+    throw new Error('Redis is required in production and must be reachable before startup.');
+  }
+
   await app.listen(port);
 }
 

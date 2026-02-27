@@ -1,11 +1,13 @@
 import { ForbiddenException, Get, Header, NotFoundException, Req, Res, Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { Env } from '../config/env.schema';
 import { getRequestIdFrom } from './request-context';
 import type { RequestWithId } from '../types/request-with-id';
 import { PromMetricsService } from './prom-metrics.service';
 
+@ApiTags('Metrics')
 @Controller()
 export class MetricsController {
   constructor(

@@ -5,15 +5,19 @@ import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { PinoLogger } from 'nestjs-pino';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/app-error';
+import { redactErrorMessage, redactForLogs } from '../logging/redact';
 import { PromMetricsService } from '../observability/prom-metrics.service';
 import { captureApiException } from '../sentry/sentry';
 import type { RequestWithId } from '../types/request-with-id';
 
 type SafeErrorPayload = {
+  requestId: string;
+  timestamp: string;
+  path: string;
   error: {
     code: string;
     message: string;
-    requestId: string;
+    details?: unknown;
   };
 };
 
@@ -41,6 +45,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message = 'Internal server error';
     let safe = false;
     let context: unknown = null;
+    const timestamp = new Date().toISOString();
+    const path = req.originalUrl ?? req.url ?? 'unknown';
 
     if (exception instanceof AppError) {
       code = exception.code;
@@ -116,22 +122,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         entityId: req.originalUrl,
         metadata: {
           method: req.method,
-          path: req.originalUrl,
+          path,
           code,
           statusCode: status,
           safe,
-          context,
-          stack: exception instanceof Error ? exception.stack : undefined
+          context: redactForLogs(context),
+          stack: exception instanceof Error ? redactErrorMessage(exception.stack) : undefined
         }
       },
-      message
+      redactErrorMessage(message)
     );
 
+    const safeMessage = safe || !isProd ? redactErrorMessage(message) : 'Internal server error';
+    const safeDetails = safe || !isProd ? redactForLogs(context) : undefined;
     const payload: SafeErrorPayload = {
+      requestId,
+      timestamp,
+      path,
       error: {
         code,
-        message: safe || !isProd ? message : 'Internal server error',
-        requestId
+        message: safeMessage,
+        ...(safeDetails != null ? { details: safeDetails } : {})
       }
     };
 

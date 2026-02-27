@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { IsOptional, IsString } from 'class-validator';
+import { ApiTags } from '@nestjs/swagger';
 import { AuditService } from '../../common/audit/audit.service';
 
 class AuditDemoDto {
@@ -8,6 +9,7 @@ class AuditDemoDto {
   note?: string;
 }
 
+@ApiTags('Dev')
 @Controller('dev')
 export class DevAuditController {
   constructor(private readonly auditService: AuditService) {}

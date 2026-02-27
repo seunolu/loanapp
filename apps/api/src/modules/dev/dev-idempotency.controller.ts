@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { ApiTags } from '@nestjs/swagger';
 import { Idempotent } from '../../common/idempotency/idempotency.decorator';
 
 class IdempotencyDemoDto {
@@ -19,6 +20,7 @@ type IdempotencyDemoResponse = {
   echo: IdempotencyDemoDto;
 };
 
+@ApiTags('Dev')
 @Controller('dev')
 export class DevIdempotencyController {
   private executionCount = 0;

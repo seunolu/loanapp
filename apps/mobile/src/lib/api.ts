@@ -355,6 +355,34 @@ export type BorrowerRecentLoan = {
   createdAt: string;
 };
 
+export type BorrowerLoanApplicationDetail = {
+  id: string;
+  borrowerId: string;
+  amountRequested: number;
+  tenorDays: number;
+  status: string;
+  submittedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BorrowerLoanOfferDetail = {
+  offerId: string;
+  applicationId: string;
+  status: string;
+  principalAmount: number;
+  interestAmount: number;
+  feeAmount: number;
+  totalRepayable: number;
+  offeredAt: string;
+  expiresAt: string;
+  schedule: {
+    id: string;
+    dueDate: string;
+    amount: number;
+  }[];
+};
+
 function getStatusFromUnknownError(error: unknown): number | null {
   if (error instanceof ApiError) {
     return error.status;
@@ -459,6 +487,20 @@ export async function listRecentLoans(limit = 3): Promise<BorrowerRecentLoan[]> 
   }
 
   return [];
+}
+
+export async function getLoanApplicationDetail(id: string): Promise<BorrowerLoanApplicationDetail> {
+  return apiRequest(`/loans/applications/${encodeURIComponent(id)}`, {
+    method: 'GET',
+    requiresAuth: true
+  });
+}
+
+export async function getLoanOfferByApplication(id: string): Promise<BorrowerLoanOfferDetail> {
+  return apiRequest(`/loans/offers/${encodeURIComponent(id)}`, {
+    method: 'GET',
+    requiresAuth: true
+  });
 }
 
 export async function hasActiveSession(): Promise<boolean> {

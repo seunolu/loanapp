@@ -16,11 +16,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify:bootstrap": "expo doctor && tsc -p tsconfig.json --noEmit",
     "verify": "pnpm lint && pnpm typecheck",
+    "verify:mobile": "pnpm -C apps/mobile typecheck && pnpm -C apps/mobile lint",
     "ios": "expo run:ios"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/netinfo": "^12.0.1",
     "@tanstack/react-query": "^5.66.8",
     "expo": "^52.0.20",
     "expo-constants": "~17.0.8",

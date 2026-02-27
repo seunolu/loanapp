@@ -65,6 +65,16 @@ function hasTokenExpiredError(payload: unknown): boolean {
   return code === 'TOKEN_EXPIRED';
 }
 
+function isUnauthorizedStatus(status: number): boolean {
+  return status === 401 || status === 403;
+}
+
+async function expireSession(message = 'Session expired. Please log in again.'): Promise<never> {
+  await clearTokens();
+  emitSessionExpired();
+  throw new AuthError(message);
+}
+
 async function refreshTokensSingleFlight(): Promise<SessionTokens | null> {
   if (!refreshPromise) {
     refreshPromise = refreshSessionTokens().finally(() => {
@@ -88,9 +98,13 @@ async function buildHeaders(inputHeaders: Record<string, string> | undefined, re
   if (requiresAuth) {
     const tokens = await getTokens();
     if (!tokens?.accessToken) {
-      throw new AuthError('Unauthorized');
+      await expireSession();
     }
-    headers.set('Authorization', `Bearer ${tokens.accessToken}`);
+    const accessToken = tokens?.accessToken;
+    if (!accessToken) {
+      await expireSession();
+    }
+    headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
   return headers;
@@ -121,19 +135,20 @@ export async function authRequest<T>(path: string, options: AuthRequestOptions =
   const responseText = await response.text();
   const payload = parseBody(responseText);
 
-  if ((response.status === 401 || hasTokenExpiredError(payload)) && requiresAuth && retryOnUnauthorized) {
+  if ((isUnauthorizedStatus(response.status) || hasTokenExpiredError(payload)) && requiresAuth && retryOnUnauthorized) {
     const refreshed = await refreshTokensSingleFlight();
     if (!refreshed?.accessToken) {
-      await clearTokens();
-      emitSessionExpired();
-      throw new AuthError('Your session has expired. Please sign in again.');
+      await expireSession();
     }
     return authRequest<T>(path, { ...options, retryOnUnauthorized: false });
   }
 
   if (!response.ok) {
     const message = getErrorMessage(response.status, payload);
-    if (response.status === 401) {
+    if (isUnauthorizedStatus(response.status) && requiresAuth) {
+      await expireSession(message);
+    }
+    if (isUnauthorizedStatus(response.status)) {
       throw new AuthError(message, payload);
     }
     throw new NetworkError(message, response.status, payload);

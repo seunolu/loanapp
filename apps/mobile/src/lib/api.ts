@@ -144,19 +144,24 @@ function toJsonBody(init: RequestInit, headers: Headers): BodyInit | null | unde
   return JSON.stringify(body);
 }
 
-function formatApiError(status: number, responseBody: unknown): string {
+export function formatApiError(status: number, responseBody: unknown): string {
+  if (status === 429) {
+    return 'Too many requests. Try again shortly.';
+  }
+  if (status >= 500) {
+    return 'Service temporarily unavailable. Try again.';
+  }
+
   if (typeof responseBody === 'string' && responseBody.trim()) {
-    return `Request failed (${status}): ${responseBody}`;
+    return responseBody;
   }
 
   if (responseBody && typeof responseBody === 'object') {
     const candidate = (responseBody as { message?: string; error?: { message?: string } }).error?.message ??
       (responseBody as { message?: string }).message;
     if (candidate) {
-      return `Request failed (${status}): ${candidate}`;
+      return candidate;
     }
-
-    return `Request failed (${status}): ${JSON.stringify(responseBody)}`;
   }
 
   return `Request failed (${status})`;
@@ -175,11 +180,16 @@ export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: Re
     headers.set('x-tenant-slug', tenant.tenantSlug);
   }
 
-  const response = await fetch(`${baseUrl}${normalizedPath}`, {
-    ...init,
-    headers,
-    body
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${normalizedPath}`, {
+      ...init,
+      headers,
+      body
+    });
+  } catch (error: unknown) {
+    throw new ApiRequestError('Network error. Check your connection.', 0, error);
+  }
 
   const rawBody = await response.text();
   let parsedBody: unknown = undefined;

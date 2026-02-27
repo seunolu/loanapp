@@ -3,20 +3,22 @@ import { Animated, Easing, StyleSheet } from 'react-native';
 import { Text } from '../primitives';
 import { useTheme } from '../theme';
 
-type ToastTone = 'info' | 'success' | 'warning' | 'danger';
+type ToastType = 'info' | 'success' | 'error';
 
 type ToastProps = {
   visible: boolean;
-  message: string;
-  tone?: ToastTone;
+  title: string;
+  message?: string;
+  type?: ToastType;
   durationMs?: number;
   onHide?: () => void;
 };
 
 export function Toast({
   visible,
+  title,
   message,
-  tone = 'info',
+  type = 'info',
   durationMs = 2200,
   onHide
 }: ToastProps): React.JSX.Element | null {
@@ -65,16 +67,17 @@ export function Toast({
       style={[
         styles.container,
         {
-          backgroundColor: toneStyles(t)[tone].bg,
-          borderColor: toneStyles(t)[tone].border,
+          backgroundColor: typeStyles(t)[type].bg,
+          borderColor: typeStyles(t)[type].border,
           opacity,
           transform: [{ translateY }]
         }
       ]}
     >
-      <Text color={toneStyles(t)[tone].text} weight="600">
-        {message}
+      <Text color={typeStyles(t)[type].text} weight="700">
+        {title}
       </Text>
+      {message ? <Text color={typeStyles(t)[type].text}>{message}</Text> : null}
     </Animated.View>
   );
 }
@@ -84,15 +87,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10
+    paddingVertical: 10,
+    gap: 4
   }
 });
 
-const toneStyles = (t: ReturnType<typeof useTheme>) => ({
+const typeStyles = (t: ReturnType<typeof useTheme>) => ({
   info: { bg: t.colors.infoSurface, border: t.colors.infoBorder, text: 'info' as const },
   success: { bg: t.colors.successSurface, border: t.colors.successBorder, text: 'success' as const },
-  warning: { bg: t.colors.warningSurface, border: t.colors.warningBorder, text: 'warning' as const },
-  danger: { bg: t.colors.dangerSurface, border: t.colors.dangerBorder, text: 'danger' as const }
+  error: { bg: t.colors.dangerSurface, border: t.colors.dangerBorder, text: 'danger' as const }
 });
 
-export type { ToastProps, ToastTone };
+export type { ToastProps, ToastType };

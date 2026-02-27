@@ -4,4 +4,7 @@ export { InlineLoader, type InlineLoaderProps } from './InlineLoader';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { ErrorState, type ErrorStateProps } from './ErrorState';
 export { Skeleton, type SkeletonProps } from './Skeleton';
-export { Toast, type ToastProps, type ToastTone } from './Toast';
+export { Toast, type ToastProps, type ToastType } from './Toast';
+export { ToastHost } from './ToastHost';
+export { showToast, type ToastInput } from './toast-store';
+export { ErrorBoundary } from './ErrorBoundary';

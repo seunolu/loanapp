@@ -8,7 +8,11 @@ export function useSessionBootstrap() {
   return useQuery({
     queryKey: SESSION_ME_QUERY_KEY,
     queryFn: () => getMe(),
-    retry: false
+    retry: false,
+    refetchOnMount: 'always',
+    meta: {
+      suppressGlobalErrorToast: true
+    }
   });
 }
 

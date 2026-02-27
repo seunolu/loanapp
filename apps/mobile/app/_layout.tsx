@@ -7,15 +7,15 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapApp } from '../src/bootstrap/bootstrap';
 import { subscribeSessionExpired } from '../src/auth/session-events';
-import { ErrorBoundary } from '../src/errors/ErrorBoundary';
 import { RootErrorScreen } from '../src/errors/RootErrorScreen';
 import { AuthProvider, useAuth } from '../src/providers/auth-provider';
 import { KycProvider } from '../src/providers/kyc-provider';
 import { AppQueryProvider } from '../src/providers/query-provider';
+import { OfflineBanner } from '../src/features/network/OfflineBanner';
 import { TenantProvider } from '../src/tenant/tenant-context';
 import { REQUIRE_TENANT_SELECTION, ROUTE_GROUPS, ROUTES } from '../src/routing/guards';
 import { useTenant } from '../src/tenant/tenant-context';
-import { FullScreenLoader, ThemeProvider, Toast } from '../src/ui';
+import { FullScreenLoader, ThemeProvider, ErrorBoundary, ToastHost, showToast } from '../src/ui';
 
 type SplashModule = {
   preventAutoHideAsync: () => Promise<boolean>;
@@ -88,25 +88,29 @@ function BootstrapGate({ children }: { children: React.ReactNode }): React.JSX.E
     return <RootErrorScreen error={state.error} onRetry={retry} />;
   }
 
-  return <ErrorBoundary onRetry={retry}>{children}</ErrorBoundary>;
+  return <>{children}</>;
 }
 
 function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { status } = useAuth();
-  const { tenantSlug, resolved } = useTenant();
+  const { tenantSlug, resolved, clearTenant } = useTenant();
   const router = useRouter();
   const segments = useSegments();
-  const [showSessionExpired, setShowSessionExpired] = React.useState(false);
   const hasHandledRedirect = React.useRef<string | null>(null);
   const hasHiddenNativeSplash = React.useRef(false);
 
   React.useEffect(() => {
     const unsubscribe = subscribeSessionExpired(() => {
-      setShowSessionExpired(true);
+      clearTenant();
+      showToast({
+        type: 'error',
+        title: 'Session expired',
+        message: 'Please log in again.'
+      });
       router.replace('/(auth)/login');
     });
     return unsubscribe;
-  }, [router]);
+  }, [clearTenant, router]);
 
   React.useEffect(() => {
     if (status === 'unknown' || hasHiddenNativeSplash.current) {
@@ -165,15 +169,9 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
 
   return (
     <View style={styles.routeContainer}>
-      {children}
-      <View style={styles.toastContainer} pointerEvents="box-none">
-        <Toast
-          visible={showSessionExpired}
-          message="Session expired. Please sign in again."
-          tone="warning"
-          onHide={() => setShowSessionExpired(false)}
-        />
-      </View>
+      <OfflineBanner />
+      <ToastHost />
+      <ErrorBoundary>{children}</ErrorBoundary>
     </View>
   );
 }
@@ -206,11 +204,5 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   routeContainer: {
     flex: 1
-  },
-  toastContainer: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 24
   }
 });

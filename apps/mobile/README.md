@@ -16,6 +16,10 @@ Android-first borrower app built with Expo + expo-router.
    - `cp apps/mobile/.env.example apps/mobile/.env`
 3. Start app:
    - `pnpm -C apps/mobile start`
+   - Per brand:
+     - `BRAND=default pnpm -C apps/mobile start`
+     - `BRAND=demo pnpm -C apps/mobile start`
+     - `BRAND=acme pnpm -C apps/mobile start`
 
 ## Android run
 
@@ -102,3 +106,14 @@ How to run:
 - `cd apps/mobile`
 - `pnpm start --clear`
 - Open the Android dev client
+
+## Splash troubleshooting
+
+If splash art/config changes do not appear:
+
+1. Clear Expo cache:
+   - `pnpm -C apps/mobile start -- --clear`
+2. Rebuild native dev client (splash is native-first-paint):
+   - Android: `pnpm -C apps/mobile android`
+   - iOS: `pnpm -C apps/mobile ios`
+3. Ensure `BRAND` is set to the expected key (`default`, `demo`, `acme`) before starting Expo.

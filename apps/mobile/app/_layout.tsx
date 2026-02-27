@@ -17,6 +17,22 @@ import { REQUIRE_TENANT_SELECTION, ROUTE_GROUPS, ROUTES } from '../src/routing/g
 import { useTenant } from '../src/tenant/tenant-context';
 import { FullScreenLoader, ThemeProvider, Toast } from '../src/ui';
 
+type SplashModule = {
+  preventAutoHideAsync: () => Promise<boolean>;
+  hideAsync: () => Promise<void>;
+};
+
+function getSplashModule(): SplashModule | null {
+  try {
+    return require('expo-splash-screen') as SplashModule;
+  } catch {
+    return null;
+  }
+}
+
+const splash = getSplashModule();
+void splash?.preventAutoHideAsync().catch(() => undefined);
+
 type BootstrapState =
   | { phase: 'loading' }
   | { phase: 'ready' }
@@ -25,6 +41,7 @@ type BootstrapState =
 function BootstrapGate({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [attempt, setAttempt] = React.useState(0);
   const [state, setState] = React.useState<BootstrapState>({ phase: 'loading' });
+  const isSplashHiddenRef = React.useRef(false);
 
   React.useEffect(() => {
     let active = true;
@@ -51,6 +68,19 @@ function BootstrapGate({ children }: { children: React.ReactNode }): React.JSX.E
     setAttempt((value) => value + 1);
   }, []);
 
+  React.useEffect(() => {
+    if (state.phase !== 'error' || isSplashHiddenRef.current) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      void splash?.hideAsync()
+        .catch(() => undefined)
+        .finally(() => {
+          isSplashHiddenRef.current = true;
+        });
+    });
+  }, [state.phase]);
+
   if (state.phase === 'loading') {
     return <FullScreenLoader message="Preparing your workspace..." />;
   }
@@ -68,6 +98,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
   const segments = useSegments();
   const [showSessionExpired, setShowSessionExpired] = React.useState(false);
   const hasHandledRedirect = React.useRef<string | null>(null);
+  const hasHiddenNativeSplash = React.useRef(false);
 
   React.useEffect(() => {
     const unsubscribe = subscribeSessionExpired(() => {
@@ -76,6 +107,20 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
     });
     return unsubscribe;
   }, [router]);
+
+  React.useEffect(() => {
+    if (status === 'unknown' || hasHiddenNativeSplash.current) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      void splash?.hideAsync()
+        .catch(() => undefined)
+        .finally(() => {
+          hasHiddenNativeSplash.current = true;
+        });
+    });
+  }, [status]);
 
   React.useEffect(() => {
     if (status === 'unknown') {

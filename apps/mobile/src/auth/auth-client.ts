@@ -1,10 +1,14 @@
 import { getOrCreateDeviceId } from '../lib/device';
 import { getApiBaseUrl } from '../lib/apiBaseUrl';
-import { getTenantSlug } from '../lib/storage';
+import { clearTenantSlug, getTenantSlug } from '../lib/storage';
 import { AuthError, NetworkError } from '../errors/AppError';
 import { refreshSessionTokens } from './auth-service';
 import { emitSessionExpired } from './session-events';
-import { clearTokens, getTokens, type SessionTokens } from './token-storage';
+import { clearTokenTenantBinding, clearTokens, getTokenTenantBinding, getTokens, setTokenTenantBinding, type SessionTokens } from './token-storage';
+import { getClientContext } from '../security/device-context';
+import { activateMaintenanceMode, isMaintenanceError } from '../security/maintenance';
+import { safeErrorMessage } from '../security/redaction';
+import { secureFetch } from '../security/secure-fetch';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -56,7 +60,7 @@ function getErrorMessage(status: number, payload: unknown): string {
   }
   const parsed = asErrorPayload(payload);
   const message = parsed?.error?.message ?? parsed?.message;
-  return message ?? `Request failed (${status})`;
+  return safeErrorMessage(message ?? `Request failed (${status})`);
 }
 
 function hasTokenExpiredError(payload: unknown): boolean {
@@ -70,7 +74,7 @@ function isUnauthorizedStatus(status: number): boolean {
 }
 
 async function expireSession(message = 'Session expired. Please log in again.'): Promise<never> {
-  await clearTokens();
+  await Promise.all([clearTokens(), clearTokenTenantBinding(), clearTenantSlug()]);
   emitSessionExpired();
   throw new AuthError(message);
 }
@@ -87,8 +91,13 @@ async function refreshTokensSingleFlight(): Promise<SessionTokens | null> {
 
 async function buildHeaders(inputHeaders: Record<string, string> | undefined, requiresAuth: boolean): Promise<Headers> {
   const headers = new Headers(inputHeaders ?? {});
+  const context = getClientContext();
+  const deviceId = await getOrCreateDeviceId();
   headers.set('X-Request-Id', requestId());
-  headers.set('X-Device-Id', await getOrCreateDeviceId());
+  headers.set('X-Device-Id', deviceId);
+  headers.set('x-device-id', deviceId);
+  headers.set('x-app-version', context.appVersion);
+  headers.set('x-platform', context.platform);
 
   const tenantSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
   if (tenantSlug && !headers.has('x-tenant-slug')) {
@@ -110,10 +119,29 @@ async function buildHeaders(inputHeaders: Record<string, string> | undefined, re
   return headers;
 }
 
+async function enforceTenantBinding(requiresAuth: boolean): Promise<void> {
+  if (!requiresAuth) {
+    return;
+  }
+  const currentTenant = (await getTenantSlug())?.trim().toLowerCase() ?? '';
+  if (!currentTenant) {
+    return;
+  }
+  const boundTenant = (await getTokenTenantBinding())?.trim().toLowerCase() ?? '';
+  if (!boundTenant) {
+    await setTokenTenantBinding(currentTenant);
+    return;
+  }
+  if (boundTenant !== currentTenant) {
+    await expireSession('Session mismatch detected. Please sign in again.');
+  }
+}
+
 export async function authRequest<T>(path: string, options: AuthRequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
   const requiresAuth = options.requiresAuth ?? false;
   const retryOnUnauthorized = options.retryOnUnauthorized ?? true;
+  await enforceTenantBinding(requiresAuth);
   const headers = await buildHeaders(options.headers, requiresAuth);
 
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
@@ -123,17 +151,22 @@ export async function authRequest<T>(path: string, options: AuthRequestOptions =
 
   let response: Response;
   try {
-    response = await fetch(`${API_V1}${path}`, {
+    response = await secureFetch(`${API_V1}${path}`, {
       method,
       headers,
       body
-    });
+    }, { retryIdempotentGet: method === 'GET' });
   } catch (error: unknown) {
-    throw new NetworkError('Network request failed.', undefined, error);
+    throw new NetworkError(safeErrorMessage(error, 'Network request failed.'), undefined, error);
   }
 
   const responseText = await response.text();
   const payload = parseBody(responseText);
+
+  if (isMaintenanceError(response.status, payload)) {
+    activateMaintenanceMode();
+    throw new NetworkError('Service temporarily unavailable. Try again.', response.status, payload);
+  }
 
   if ((isUnauthorizedStatus(response.status) || hasTokenExpiredError(payload)) && requiresAuth && retryOnUnauthorized) {
     const refreshed = await refreshTokensSingleFlight();

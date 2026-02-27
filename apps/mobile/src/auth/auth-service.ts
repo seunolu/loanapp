@@ -1,6 +1,9 @@
 import { getOrCreateDeviceId } from '../lib/device';
 import { getApiBaseUrl } from '../lib/apiBaseUrl';
 import { getTokens, setTokens, type SessionTokens } from './token-storage';
+import { getClientContext } from '../security/device-context';
+import { isMaintenanceError, activateMaintenanceMode } from '../security/maintenance';
+import { secureFetch } from '../security/secure-fetch';
 
 const API_V1 = `${getApiBaseUrl()}/api/v1`;
 
@@ -33,7 +36,7 @@ export async function validateSession(): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(`${API_V1}/me`, {
+    const response = await secureFetch(`${API_V1}/me`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${tokens.accessToken}`
@@ -51,17 +54,25 @@ export async function refreshSessionTokens(): Promise<SessionTokens | null> {
     return null;
   }
 
-  const response = await fetch(`${API_V1}/auth/refresh`, {
+  const context = getClientContext();
+  const deviceId = await getOrCreateDeviceId();
+  const response = await secureFetch(`${API_V1}/auth/refresh`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Request-Id': requestId(),
-      'X-Device-Id': await getOrCreateDeviceId()
+      'X-Device-Id': deviceId,
+      'x-device-id': deviceId,
+      'x-app-version': context.appVersion,
+      'x-platform': context.platform
     },
     body: JSON.stringify({ refreshToken: tokens.refreshToken })
-  });
+  }, { retryIdempotentGet: false });
 
   if (!response.ok) {
+    if (isMaintenanceError(response.status, undefined)) {
+      activateMaintenanceMode();
+    }
     return null;
   }
 
@@ -74,6 +85,11 @@ export async function refreshSessionTokens(): Promise<SessionTokens | null> {
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
+    return null;
+  }
+
+  if (isMaintenanceError(response.status, parsed)) {
+    activateMaintenanceMode();
     return null;
   }
 

@@ -1,10 +1,13 @@
 import { getOrCreateDeviceId } from './device';
 import Constants from 'expo-constants';
 import { authRequest } from '../auth/auth-client';
-import { clearTokens, getTokens, setTokens } from '../auth/token-storage';
+import { clearTokens, getTokens, setTokenTenantBinding, setTokens } from '../auth/token-storage';
 import { getTenantSlug, setTenantSlug } from './storage';
 import { getApiBaseUrl } from './apiBaseUrl';
 import type { TenantSnapshot } from '../tenant/tenant-context';
+import { safeErrorMessage } from '../security/redaction';
+import { activateMaintenanceMode, isMaintenanceError } from '../security/maintenance';
+import { secureFetch } from '../security/secure-fetch';
 
 const API_BASE = getApiBaseUrl();
 const API_V1 = `${API_BASE}/api/v1`;
@@ -20,18 +23,29 @@ export function getApiBaseUrlSafe(): string {
 
 export async function fetchJson<T>(
   path: string,
-  input: { token?: string | null; method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown } = {}
+  input: { token?: string | null; method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; timeoutMs?: number } = {}
 ): Promise<T> {
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
   if (input.token) {
     headers.set('Authorization', `Bearer ${input.token}`);
   }
-  const response = await fetch(`${API_V1}${path}`, {
-    method: input.method ?? 'GET',
-    headers,
-    body: input.body === undefined ? undefined : JSON.stringify(input.body)
-  });
+  const method = input.method ?? 'GET';
+  const response = await secureFetch(
+    `${API_V1}${path}`,
+    {
+      method,
+      headers,
+      body: input.body === undefined ? undefined : JSON.stringify(input.body)
+    },
+    {
+      timeoutMs: input.timeoutMs,
+      retryIdempotentGet: method === 'GET'
+    }
+  );
+  if (isMaintenanceError(response.status, undefined)) {
+    activateMaintenanceMode();
+  }
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`);
   }
@@ -116,6 +130,10 @@ export class ApiRequestError extends Error {
 }
 
 type ApiFetchTenant = Pick<TenantSnapshot, 'apiBaseUrl' | 'tenantSlug' | 'tenantId'>;
+type ApiRequestInit = RequestInit & {
+  timeoutMs?: number;
+  retryIdempotentGet?: boolean;
+};
 
 function trimTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, '');
@@ -167,7 +185,7 @@ export function formatApiError(status: number, responseBody: unknown): string {
   return `Request failed (${status})`;
 }
 
-export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: ApiRequestInit = {}): Promise<T> {
   const baseUrl = trimTrailingSlashes(tenant.apiBaseUrl);
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const headers = new Headers(init.headers ?? {});
@@ -182,13 +200,16 @@ export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: Re
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${normalizedPath}`, {
+    response = await secureFetch(`${baseUrl}${normalizedPath}`, {
       ...init,
       headers,
       body
+    }, {
+      timeoutMs: init.timeoutMs,
+      retryIdempotentGet: init.retryIdempotentGet ?? (String(init.method ?? 'GET').toUpperCase() === 'GET')
     });
   } catch (error: unknown) {
-    throw new ApiRequestError('Network error. Check your connection.', 0, error);
+    throw new ApiRequestError(safeErrorMessage(error, 'Network error. Check your connection.'), 0, error);
   }
 
   const rawBody = await response.text();
@@ -199,6 +220,11 @@ export async function apiFetch<T>(path: string, tenant: ApiFetchTenant, init: Re
     } catch {
       parsedBody = rawBody;
     }
+  }
+
+  if (isMaintenanceError(response.status, parsedBody ?? rawBody)) {
+    activateMaintenanceMode();
+    throw new ApiRequestError('Service under maintenance. Please try again shortly.', response.status, parsedBody ?? rawBody);
   }
 
   if (!response.ok) {
@@ -290,6 +316,10 @@ export async function verifyOtp(input: {
     accessToken: response.accessToken,
     refreshToken: response.refreshToken
   });
+  const tenantSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
+  if (tenantSlug) {
+    await setTokenTenantBinding(tenantSlug);
+  }
   return response;
 }
 

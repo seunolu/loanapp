@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '../src/providers/auth-provider';
 import { KycProvider } from '../src/providers/kyc-provider';
 import { AppQueryProvider } from '../src/providers/query-provider';
 import { OfflineBanner } from '../src/features/network/OfflineBanner';
+import { AppSecurityGate } from '../src/security/AppSecurityGate';
 import { TenantProvider } from '../src/tenant/tenant-context';
 import { REQUIRE_TENANT_SELECTION, ROUTE_GROUPS, ROUTES } from '../src/routing/guards';
 import { useTenant } from '../src/tenant/tenant-context';
@@ -171,7 +172,9 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
     <View style={styles.routeContainer}>
       <OfflineBanner />
       <ToastHost />
-      <ErrorBoundary>{children}</ErrorBoundary>
+      <ErrorBoundary>
+        <AppSecurityGate>{children}</AppSecurityGate>
+      </ErrorBoundary>
     </View>
   );
 }

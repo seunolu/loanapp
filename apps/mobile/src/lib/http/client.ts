@@ -1,5 +1,7 @@
 import { AuthError, NetworkError } from '../../errors/AppError';
 import { getSessionTokens } from '../storage';
+import { secureFetch } from '../../security/secure-fetch';
+import { activateMaintenanceMode, isMaintenanceError } from '../../security/maintenance';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -67,12 +69,16 @@ export async function request<T>(method: HttpMethod, url: string, options: Reque
 
   let response: Response;
   try {
-    response = await fetch(url, { method, headers, body });
+    response = await secureFetch(url, { method, headers, body }, { retryIdempotentGet: method === 'GET' });
   } catch (error: unknown) {
     throw new NetworkError('Network request failed.', undefined, error);
   }
 
   const parsed = await readResponseBody(response);
+  if (isMaintenanceError(response.status, parsed)) {
+    activateMaintenanceMode();
+    throw new NetworkError('Service temporarily unavailable. Try again.', response.status, parsed);
+  }
   if (!response.ok) {
     const message = resolveMessage(response.status, parsed);
     if (response.status === 401) {
@@ -83,4 +89,3 @@ export async function request<T>(method: HttpMethod, url: string, options: Reque
 
   return parsed as T;
 }
-

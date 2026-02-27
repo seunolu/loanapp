@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useLoanDetail } from '../../../src/features/loan-history/loanDetail.queries';
 import { formatMoneyNGN } from '../../../src/lib/format';
+import { useSensitiveScreenCaptureGuard } from '../../../src/security/screen-capture';
 import { Badge, Button, Card, EmptyState, ErrorState, Screen, Skeleton, Text, TopNav, colors, spacing, typography } from '../../../src/ui';
 
 // Audit findings:
@@ -11,6 +12,7 @@ import { Badge, Button, Card, EmptyState, ErrorState, Screen, Skeleton, Text, To
 // - Existing response types available from backend contracts: LoanApplicationDetailsDto and LoanOfferDetailsDto.
 
 export default function LoanStatusScreen() {
+  useSensitiveScreenCaptureGuard('loan-detail');
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const loanId = normalizeId(params.id);
   const loanQuery = useLoanDetail(loanId);
@@ -263,5 +265,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted
   }
 });
-
 

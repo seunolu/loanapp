@@ -14,6 +14,10 @@ export const envSchema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
   REQUEST_BODY_LIMIT: z.string().trim().min(2).default('1mb'),
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   APP_VERSION: z.string().trim().min(1).default('dev'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -21,6 +25,10 @@ export const envSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  SWAGGER_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => (value == null ? undefined : value === 'true')),
   METRICS_TOKEN: z.string().trim().optional(),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
@@ -43,6 +51,10 @@ export const envSchema = z.object({
   RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).max(7200).default(600),
   RATE_LIMIT_GENERIC_MAX: z.coerce.number().int().min(1).max(10000).default(200),
   RATE_LIMIT_GENERIC_WINDOW_SECONDS: z.coerce.number().int().min(1).max(3600).default(60),
+  HEALTH_READY_REDIS_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   OTP_HASH_SECRET: z.string().min(16).default('change-this-otp-secret'),
   OTP_DEV_MODE: z
     .enum(['true', 'false'])
@@ -128,6 +140,12 @@ export const envSchema = z.object({
   MANDATE_DEBIT_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
   MANDATE_DEBIT_BASE_BACKOFF_MS: z.coerce.number().int().min(1000).max(3600000).default(60000),
   QUEUE_METRICS_INTERVAL_MS: z.coerce.number().int().min(1000).max(3600000).default(10000),
+  JOB_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(5),
+  JOB_BACKOFF_MS: z.coerce.number().int().min(100).max(3600000).default(30000),
+  JOB_DLQ_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   SENTRY_DSN: z.string().trim().optional(),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
   SENTRY_ENVIRONMENT: z.string().trim().optional(),

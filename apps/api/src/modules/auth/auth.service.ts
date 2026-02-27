@@ -1,5 +1,5 @@
 ﻿import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable, Scope, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger, Scope, UnauthorizedException } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from 'jsonwebtoken';
@@ -10,10 +10,12 @@ import { BORROWER_JWT_AUDIENCE, BORROWER_JWT_ISSUER } from '../../common/auth/jw
 import type { Env } from '../../common/config/env.schema';
 import { PrismaService } from '../../common/database/prisma.service';
 import { NotificationsService } from '../../common/notifications/notifications.service';
+import { PromMetricsService } from '../../common/observability/prom-metrics.service';
 import { RequestContextService } from '../../common/request-context/request-context.service';
 import { RiskService } from '../../common/risk/risk.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import type { RequestWithId } from '../../common/types/request-with-id';
+import { redactForLogs } from '../../common/logging/redact';
 import { OtpRateLimitService } from './otp-rate-limit.service';
 import type { RequestOtpDto } from './dto/request-otp.dto';
 import type { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -40,12 +42,15 @@ type RefreshClaims = JwtPayload & {
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(REQUEST) private readonly request: RequestWithId,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService<Env, true>,
     private readonly rateLimitService: OtpRateLimitService,
     private readonly requestContextService: RequestContextService,
+    private readonly promMetrics: PromMetricsService,
     private readonly auditService: AuditService,
     private readonly auditLogger: AuditLoggerService,
     private readonly notificationsService: NotificationsService,
@@ -256,6 +261,7 @@ export class AuthService {
       actorId: borrower.id,
       metadata: { phone, sessionBoundDeviceId: input.deviceId ?? null }
     });
+    this.promMetrics.incrementAuthEvent('login', 'success');
 
     return {
       ...tokens,
@@ -286,6 +292,15 @@ export class AuthService {
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now()
     ) {
+      this.promMetrics.incrementAuthEvent('refresh', 'fail');
+      this.logger.warn(
+        redactForLogs({
+          action: 'AUTH_REFRESH_FAIL',
+          reason: 'SESSION_INVALID',
+          borrowerId: claims.sub ?? null,
+          refreshJti: claims.jti
+        }) as Record<string, unknown>
+      );
       await this.auditService.write({
         event: 'AUTH_REFRESH_FAIL',
         actorType: 'SYSTEM',
@@ -308,6 +323,15 @@ export class AuthService {
     }
 
     if (session.replacedByJti) {
+      this.promMetrics.incrementAuthEvent('refresh', 'fail');
+      this.logger.warn(
+        redactForLogs({
+          action: 'AUTH_REFRESH_FAIL',
+          reason: 'TOKEN_REUSE_DETECTED',
+          borrowerId: session.borrowerId,
+          refreshJti: claims.jti
+        }) as Record<string, unknown>
+      );
       await this.revokeSessionFamily(session.rootJti, 'TOKEN_REUSE_DETECTED');
       await this.auditService.write({
         event: 'AUTH_REFRESH_FAIL',
@@ -332,6 +356,15 @@ export class AuthService {
 
     const expectedHash = this.hashRefreshToken(input.refreshToken);
     if (!this.safeHashMatch(session.refreshTokenHash, expectedHash)) {
+      this.promMetrics.incrementAuthEvent('refresh', 'fail');
+      this.logger.warn(
+        redactForLogs({
+          action: 'AUTH_REFRESH_FAIL',
+          reason: 'HASH_MISMATCH',
+          borrowerId: session.borrowerId,
+          refreshJti: claims.jti
+        }) as Record<string, unknown>
+      );
       await this.auditService.write({
         event: 'AUTH_REFRESH_FAIL',
         actorType: 'SYSTEM',
@@ -379,6 +412,7 @@ export class AuthService {
       actorId: session.borrowerId,
       metadata: { previousJti: session.jti, newJti: rotated.jti }
     });
+    this.promMetrics.incrementAuthEvent('refresh', 'success');
 
     return {
       accessToken: rotated.accessToken,
@@ -652,6 +686,7 @@ export class AuthService {
       status: 'FAIL',
       metadata: { phone, reason }
     });
+    this.promMetrics.incrementAuthEvent('login', 'fail');
   }
 
   private unauthorized(code: string, message: string): UnauthorizedException {

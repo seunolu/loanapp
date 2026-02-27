@@ -12,6 +12,11 @@ Assumes API is running on `http://localhost:3000` with global prefix `/api/v1`.
 - `PAYSTACK_SECRET_KEY`: Paystack secret key for initialize/verify calls.
 - `PAYSTACK_PUBLIC_KEY`: optional, exposed only when needed by external clients.
 - `PAYSTACK_WEBHOOK_SECRET`: HMAC secret for webhook signature validation.
+- `TRUST_PROXY_HOPS`: number of trusted reverse proxies (default `1`); set this correctly in production so `x-forwarded-for` is reliable for rate limiting and audit IP attribution.
+- `TRUST_PROXY`: set `true` when running behind trusted reverse proxy; when enabled the API extracts client IP from the first `x-forwarded-for` entry.
+- `REDIS_URL`: required in production; API startup fails fast if Redis is missing/unreachable.
+- `HEALTH_READY_REDIS_REQUIRED`: readiness (`GET /ready`) requires Redis when `true` (default `true`).
+- `SWAGGER_ENABLED`: enable API docs at `/api/v1/docs`; defaults to enabled in non-production and disabled in production.
 
 ## 1) Resolve tenant
 

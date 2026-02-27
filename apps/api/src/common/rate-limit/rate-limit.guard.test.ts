@@ -59,7 +59,8 @@ test('RateLimitGuard composes tenant-aware key for authenticated calls', async (
   const guard = new RateLimitGuard(
     new FakeReflector('GENERIC_API') as any,
     { getClient: () => client } as any,
-    { get: () => ({ windowSeconds: 60, maxRequests: 2, keyStrategy: 'USER+TENANT' }) } as any
+    { get: () => ({ windowSeconds: 60, maxRequests: 2, keyStrategy: 'USER+TENANT' }) } as any,
+    { get: () => false } as any
   );
   const req = {
     path: '/api/v1/admin/loan-applications',
@@ -77,7 +78,8 @@ test('RateLimitGuard returns 429 after policy max exceeded', async () => {
   const guard = new RateLimitGuard(
     new FakeReflector('AUTH') as any,
     redis as any,
-    { get: () => ({ windowSeconds: 60, maxRequests: 1, keyStrategy: 'IP' }) } as any
+    { get: () => ({ windowSeconds: 60, maxRequests: 1, keyStrategy: 'IP' }) } as any,
+    { get: () => false } as any
   );
   const req = { path: '/api/v1/auth/login', ip: '127.0.0.1', user: undefined };
   const res = { setHeader: () => undefined };

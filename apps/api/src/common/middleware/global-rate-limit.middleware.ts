@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, NestMiddleware } from '@nestjs/c
 import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Response } from 'express';
 import type { Env } from '../config/env.schema';
+import { extractClientIp } from '../http/ip';
 import { RedisService } from '../redis/redis.service';
 import type { RequestWithId } from '../types/request-with-id';
 
@@ -18,7 +19,8 @@ export class GlobalRateLimitMiddleware implements NestMiddleware {
       return;
     }
 
-    const ip = req.ip;
+    const trustProxy = this.configService.get('TRUST_PROXY', { infer: true });
+    const ip = extractClientIp(req, trustProxy);
     if (!ip) {
       next();
       return;

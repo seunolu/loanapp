@@ -20,8 +20,9 @@ export class PromMetricsService {
   private static initialized = false;
 
   private readonly registry: Registry;
-  private readonly httpRequestsTotal: Counter<'route' | 'method' | 'status' | 'tenantId'>;
-  private readonly httpRequestDurationSeconds: Histogram<'route' | 'method' | 'status' | 'tenantId'>;
+  private readonly httpRequestsTotal: Counter<'route' | 'method' | 'status'>;
+  private readonly httpRequestDurationSeconds: Histogram<'route' | 'method' | 'status'>;
+  private readonly authEventsTotal: Counter<'action' | 'result'>;
   private readonly dbQueryErrorsTotal: Counter<'error_code'>;
   private readonly loanTransitionsTotal: Counter<'from' | 'to'>;
   private readonly jobsEnqueuedTotal: Counter<'queue' | 'name'>;
@@ -55,15 +56,15 @@ export class PromMetricsService {
     this.httpRequestsTotal = this.getOrCreateCounter('http_requests_total', 'HTTP requests total', [
       'route',
       'method',
-      'status',
-      'tenantId'
+      'status'
     ]);
     this.httpRequestDurationSeconds = this.getOrCreateHistogram(
       'http_request_duration_seconds',
       'HTTP request duration in seconds',
-      ['route', 'method', 'status', 'tenantId'],
+      ['route', 'method', 'status'],
       [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10]
     );
+    this.authEventsTotal = this.getOrCreateCounter('auth_events_total', 'Auth login/refresh events', ['action', 'result']);
     this.dbQueryErrorsTotal = this.getOrCreateCounter('db_query_errors_total', 'DB query failures', ['error_code']);
     this.loanTransitionsTotal = this.getOrCreateCounter('loan_transitions_total', 'Loan transitions', ['from', 'to']);
     this.jobsEnqueuedTotal = this.getOrCreateCounter('jobs_enqueued_total', 'Jobs enqueued', ['queue', 'name']);
@@ -120,15 +121,18 @@ export class PromMetricsService {
     );
   }
 
-  observeHttpRequest(method: string, route: string, status: number, durationMs: number, tenantId = 'unknown'): void {
+  observeHttpRequest(method: string, route: string, status: number, durationMs: number): void {
     const labels = {
       method: this.sanitize(method.toUpperCase()),
       route: this.sanitize(route || 'unknown'),
-      status: this.sanitize(String(status)),
-      tenantId: this.sanitize(tenantId || 'unknown')
+      status: this.sanitize(String(status))
     };
     this.httpRequestsTotal.inc(labels, 1);
     this.httpRequestDurationSeconds.observe(labels, Math.max(0, durationMs) / 1000);
+  }
+
+  incrementAuthEvent(action: 'login' | 'refresh', result: 'success' | 'fail'): void {
+    this.authEventsTotal.inc({ action, result }, 1);
   }
 
   incrementDbQueryError(errorCode: string): void {

@@ -17,6 +17,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
     const requiredProdValues: Array<[keyof Env, string | undefined]> = [
       ['DATABASE_URL', env.DATABASE_URL],
       ['REDIS_URL', env.REDIS_URL],
+      ['TRUST_PROXY', String(env.TRUST_PROXY)],
       ['TRUST_PROXY_HOPS', String(env.TRUST_PROXY_HOPS)],
       ['JWT_ACCESS_SECRET', env.JWT_ACCESS_SECRET],
       ['JWT_REFRESH_SECRET', env.JWT_REFRESH_SECRET],
@@ -36,7 +37,11 @@ export function validateEnv(config: Record<string, unknown>): Env {
       ['RATE_LIMIT_OTP_MAX', String(env.RATE_LIMIT_OTP_MAX)],
       ['RATE_LIMIT_OTP_WINDOW_SECONDS', String(env.RATE_LIMIT_OTP_WINDOW_SECONDS)],
       ['RATE_LIMIT_LOAN_APPLICATION_SUBMIT_MAX', String(env.RATE_LIMIT_LOAN_APPLICATION_SUBMIT_MAX)],
-      ['RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS', String(env.RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS)]
+      ['RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS', String(env.RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS)],
+      ['HEALTH_READY_REDIS_REQUIRED', String(env.HEALTH_READY_REDIS_REQUIRED)],
+      ['JOB_MAX_ATTEMPTS', String(env.JOB_MAX_ATTEMPTS)],
+      ['JOB_BACKOFF_MS', String(env.JOB_BACKOFF_MS)],
+      ['JOB_DLQ_ENABLED', String(env.JOB_DLQ_ENABLED)]
     ];
 
     const missing = requiredProdValues

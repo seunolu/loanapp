@@ -1,6 +1,9 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { Response } from 'express';
+import type { Env } from '../config/env.schema';
+import { extractClientIp } from '../http/ip';
 import { RedisService } from '../redis/redis.service';
 import type { RequestWithId } from '../types/request-with-id';
 import { RATE_LIMIT_CATEGORY_META } from './rate-limit.decorator';
@@ -12,7 +15,8 @@ export class RateLimitGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly redisService: RedisService,
-    private readonly policyService: RateLimitPolicyService
+    private readonly policyService: RateLimitPolicyService,
+    private readonly configService: ConfigService<Env, true>
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -63,7 +67,8 @@ export class RateLimitGuard implements CanActivate {
   }
 
   private resolveKey(req: RequestWithId, strategy: RateLimitKeyStrategy, category: RateLimitCategory): string {
-    const ip = req.ip ?? 'unknown-ip';
+    const trustProxy = this.configService.get('TRUST_PROXY', { infer: true });
+    const ip = extractClientIp(req, trustProxy) ?? 'unknown-ip';
     const user = (req.user ?? {}) as {
       tenantId?: string;
       lenderId?: string;

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { redactForLogs } from '../logging/redact';
 import { AuditService } from './audit.service';
 
 export type AuditEventName =
@@ -44,7 +45,7 @@ export class AuditLoggerService {
       userAgent: input.userAgent ?? null,
       status: input.status ?? 'SUCCESS',
       metadata: {
-        ...(input.metadata ?? {}),
+        ...(redactForLogs(input.metadata) as Record<string, unknown> | undefined),
         deviceId: input.deviceId ?? null
       }
     });

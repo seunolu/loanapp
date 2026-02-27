@@ -31,6 +31,7 @@ export type DeepHealth = {
 export type Readiness = {
   status: 'ready' | 'not_ready';
   version: string;
+  redisRequired: boolean;
   checks: {
     database: UpDown;
     redis: UpDown;
@@ -76,10 +77,13 @@ export class HealthService {
 
   async getReadiness(): Promise<Readiness> {
     const [database, redis] = await Promise.all([this.getDatabaseHealth(), this.getRedisHealth()]);
-    const ready = database.status === 'up' && redis.status === 'up';
+    const nodeEnv = this.configService.get('NODE_ENV', { infer: true });
+    const redisRequired = this.configService.get('HEALTH_READY_REDIS_REQUIRED', { infer: true }) || nodeEnv === 'production';
+    const ready = database.status === 'up' && (!redisRequired || redis.status === 'up');
     return {
       status: ready ? 'ready' : 'not_ready',
       version: this.getVersion(),
+      redisRequired,
       checks: {
         database: database.status,
         redis: redis.status

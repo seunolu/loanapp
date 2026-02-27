@@ -71,13 +71,24 @@ export class RateLimitGuard implements CanActivate {
       borrowerId?: string;
       id?: string;
     };
+    const jwtPayload = this.decodeJwtPayload(req);
     const tenantId = user.tenantId ?? user.lenderId ?? 'unknown-tenant';
-    const userId = user.adminId ?? user.borrowerId ?? user.id ?? 'anonymous';
+    const userId = user.adminId ?? user.borrowerId ?? user.id ?? jwtPayload.sub ?? 'anonymous';
+    const borrowerId = user.borrowerId ?? jwtPayload.sub ?? 'anonymous-borrower';
+    const borrowerTenant = user.tenantId ?? user.lenderId ?? jwtPayload.tenantId ?? jwtPayload.lid ?? 'unknown-tenant';
+    const deviceId = this.getDeviceId(req);
+    const phone = this.getPhone(req);
     const provider = req.path?.includes('paystack') ? 'paystack' : 'webhook';
 
     switch (strategy) {
       case 'IP':
         return `ip:${ip}`;
+      case 'IP+DEVICE':
+        return `ip:${ip}:device:${deviceId}`;
+      case 'PHONE+IP':
+        return `phone:${phone}:ip:${ip}`;
+      case 'BORROWER+TENANT':
+        return `borrower:${borrowerId}:tenant:${borrowerTenant}`;
       case 'USER':
         return `user:${userId}`;
       case 'TENANT':
@@ -90,6 +101,48 @@ export class RateLimitGuard implements CanActivate {
       case 'USER+TENANT':
       default:
         return `user:${userId}:tenant:${tenantId}`;
+    }
+  }
+
+  private getDeviceId(req: RequestWithId): string {
+    const fromHeader = req.header('x-device-id') ?? req.header('X-Device-Id');
+    if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
+      return fromHeader.trim().toLowerCase();
+    }
+    const fromBody = (req.body as { deviceId?: unknown } | undefined)?.deviceId;
+    if (typeof fromBody === 'string' && fromBody.trim().length > 0) {
+      return fromBody.trim().toLowerCase();
+    }
+    return 'unknown-device';
+  }
+
+  private getPhone(req: RequestWithId): string {
+    const fromBody = (req.body as { phone?: unknown } | undefined)?.phone;
+    if (typeof fromBody === 'string' && fromBody.trim().length > 0) {
+      return fromBody.trim().toLowerCase();
+    }
+    return 'unknown-phone';
+  }
+
+  private decodeJwtPayload(req: RequestWithId): { sub?: string; tenantId?: string; lid?: string } {
+    const header = req.header('authorization') ?? req.header('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+      return {};
+    }
+    const token = header.slice('Bearer '.length).trim();
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return {};
+    }
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+        sub?: string;
+        tenantId?: string;
+        lid?: string;
+      };
+      return payload;
+    } catch {
+      return {};
     }
   }
 
@@ -114,4 +167,3 @@ export class RateLimitGuard implements CanActivate {
     return Math.ceil(retryAfterMs / 1000);
   }
 }
-

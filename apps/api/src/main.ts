@@ -95,6 +95,7 @@ async function bootstrap(): Promise<void> {
   const nodeEnv = configService.get('NODE_ENV', { infer: true });
   const apiPrefix = configService.get('API_PREFIX', { infer: true });
   const bodyLimit = configService.get('REQUEST_BODY_LIMIT', { infer: true });
+  const trustProxyHops = configService.get('TRUST_PROXY_HOPS', { infer: true });
   const corsCredentials = configService.get('CORS_ALLOW_CREDENTIALS', { infer: true });
   const corsOriginsCsv =
     configService.get('CORS_ORIGINS', { infer: true }) || configService.get('CORS_ALLOWED_ORIGINS', { infer: true });
@@ -134,6 +135,8 @@ async function bootstrap(): Promise<void> {
       referrerPolicy: { policy: 'no-referrer' }
     })
   );
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', trustProxyHops);
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) {

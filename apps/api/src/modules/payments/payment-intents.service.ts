@@ -11,6 +11,7 @@ import {
   TenantLoanApplicationStatus
 } from '@prisma/client';
 import { PAYMENT_GATEWAY, type PaymentGateway } from '../../payments/gateway';
+import { AuditLoggerService } from '../../common/audit/audit-logger.service';
 import { AuditService } from '../../common/audit/audit.service';
 import type { BorrowerPrincipal } from '../../common/auth/borrower-principal';
 import type { TenantAdminPrincipal } from '../../common/auth/tenant-admin-principal';
@@ -34,6 +35,7 @@ export class PaymentIntentsService {
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly auditService: AuditService,
+    private readonly auditLogger: AuditLoggerService,
     private readonly tenantLedgerService: TenantLedgerService,
     private readonly financialInvariantsService: FinancialInvariantsService,
     private readonly idempotencyService: IdempotencyService,
@@ -118,6 +120,13 @@ export class PaymentIntentsService {
         createdByBorrowerId: borrower.borrowerId
       }
     });
+    await this.auditLogger.log({
+      event: 'PAYMENT_INTENT_CREATED',
+      tenantId: borrower.tenantId,
+      actorType: 'BORROWER',
+      actorId: borrower.borrowerId,
+      metadata: { intentId: intent.id, direction: intent.direction, loanId: intent.loanId }
+    });
 
     return { ...this.toIntent(intent), authorizationUrl: gatewayInit.authorizationUrl, accessCode: gatewayInit.accessCode ?? null };
   }
@@ -199,6 +208,13 @@ export class PaymentIntentsService {
         createdByAdminId: principal.adminId
       }
     });
+    await this.auditLogger.log({
+      event: 'PAYMENT_INTENT_CREATED',
+      tenantId: principal.tenantId,
+      actorType: 'TENANT_ADMIN',
+      actorId: principal.adminId,
+      metadata: { intentId: paymentIntent.id, direction: paymentIntent.direction, loanId: paymentIntent.loanId }
+    });
 
     return this.prisma.payoutIntent.create({
       data: {
@@ -277,6 +293,13 @@ export class PaymentIntentsService {
         idempotencyKey: input.idempotencyKey,
         createdByAdminId: principal.adminId
       }
+    });
+    await this.auditLogger.log({
+      event: 'PAYMENT_INTENT_CREATED',
+      tenantId: principal.tenantId,
+      actorType: 'TENANT_ADMIN',
+      actorId: principal.adminId,
+      metadata: { intentId: intent.id, direction: intent.direction, loanId: intent.loanId }
     });
 
     return { ...this.toIntent(intent), authorizationUrl: gatewayInit.authorizationUrl, accessCode: gatewayInit.accessCode ?? null };

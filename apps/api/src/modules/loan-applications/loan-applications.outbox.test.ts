@@ -36,6 +36,7 @@ function createServiceHarness() {
     { requireResolvedTenantId: async () => 'tenant-1' } as any,
     {} as any,
     { logTransition: async () => undefined, recordEvent: async () => undefined } as any,
+    {} as any,
     { getBalances: async () => ({ totalOutstanding: { eq: () => true }, principalOutstanding: 0, interestOutstanding: 0, feesOutstanding: 0 }) } as any,
     {} as any,
     {
@@ -76,4 +77,3 @@ test('transitionStatus writes outbox event for status transition', async () => {
   assert.equal(outboxCalls[0].eventType, 'loan_application.status_transitioned');
   assert.equal(outboxCalls[0].aggregateId, 'loan-1');
 });
-

@@ -13,6 +13,7 @@ test('setStatusDirectSystemOnly forbids non-SYSTEM actor role', async () => {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
     { hasOpenAlertAtOrAbove: async () => false, incrementBehaviorSnapshot: async () => undefined } as any,
     { assertBorrowerNotRestricted: async () => undefined } as any,
     { increment: () => undefined, observeLatency: () => undefined } as any,
@@ -44,6 +45,7 @@ test('setStatusDirectSystemOnly throws not found for unknown loan', async () => 
           tenantLoanApplication: { findFirst: async () => null }
         })
     } as any,
+    {} as any,
     {} as any,
     {} as any,
     {} as any,

@@ -1,17 +1,19 @@
 ﻿import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
-import { HttpException, HttpStatus, Injectable, Scope, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Scope, UnauthorizedException } from '@nestjs/common';
+import { REQUEST } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from 'jsonwebtoken';
 import { sign, verify } from 'jsonwebtoken';
 import { AuditService } from '../../common/audit/audit.service';
+import { AuditLoggerService } from '../../common/audit/audit-logger.service';
 import { BORROWER_JWT_AUDIENCE, BORROWER_JWT_ISSUER } from '../../common/auth/jwt.constants';
 import type { Env } from '../../common/config/env.schema';
 import { PrismaService } from '../../common/database/prisma.service';
-import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from '../../common/notifications/notifications.service';
 import { RequestContextService } from '../../common/request-context/request-context.service';
 import { RiskService } from '../../common/risk/risk.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import type { RequestWithId } from '../../common/types/request-with-id';
 import { OtpRateLimitService } from './otp-rate-limit.service';
 import type { RequestOtpDto } from './dto/request-otp.dto';
 import type { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -30,20 +32,23 @@ type TokenPairResponse = {
 type RefreshClaims = JwtPayload & {
   sub: string;
   sid: string;
+  jti: string;
   lid: string;
+  did?: string | null;
   type: 'refresh';
 };
 
 @Injectable({ scope: Scope.REQUEST })
 export class AuthService {
   constructor(
+    @Inject(REQUEST) private readonly request: RequestWithId,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService<Env, true>,
     private readonly rateLimitService: OtpRateLimitService,
     private readonly requestContextService: RequestContextService,
     private readonly auditService: AuditService,
+    private readonly auditLogger: AuditLoggerService,
     private readonly notificationsService: NotificationsService,
-    private readonly redisService: RedisService,
     private readonly riskService: RiskService,
     private readonly tenantContextService: TenantContextService
   ) {}
@@ -144,8 +149,6 @@ export class AuthService {
 
   async verifyOtp(input: VerifyOtpDto): Promise<TokenPairResponse> {
     const phone = input.phone.trim();
-    const context = this.requestContextService.get();
-    await this.enforceBorrowerLoginRateLimit(context.ip);
     const lenderId = await this.tenantContextService.requireAnonymousLenderId();
     const challenge = await this.prisma.otpChallenge.findUnique({ where: { otpRef: input.otpRef } });
 
@@ -232,7 +235,8 @@ export class AuthService {
       borrowerId: borrower.id,
       lenderId: borrower.lenderId,
       phone: borrower.phone,
-      borrowerDeviceId: device?.id ?? null
+      borrowerDeviceId: device?.id ?? null,
+      deviceId: input.deviceId?.trim() || null
     });
 
     await this.auditService.write({
@@ -244,6 +248,13 @@ export class AuthService {
         borrowerId: borrower.id,
         deviceId: input.deviceId ?? null
       }
+    });
+    await this.auditLogger.log({
+      event: 'AUTH_LOGIN_SUCCESS',
+      tenantId: borrower.lenderId,
+      actorType: 'BORROWER',
+      actorId: borrower.id,
+      metadata: { phone, sessionBoundDeviceId: input.deviceId ?? null }
     });
 
     return {
@@ -257,46 +268,116 @@ export class AuthService {
   }
 
   async refresh(input: RefreshTokenDto): Promise<TokenPairResponse> {
-    const context = this.requestContextService.get();
-    await this.enforceRefreshRateLimit(context.ip);
     const claims = this.verifyRefreshToken(input.refreshToken);
+    const requestDeviceId = this.getRequestDeviceId();
     const session = await this.prisma.session.findUnique({
-      where: { id: claims.sid },
+      where: { jti: claims.jti },
       include: { borrower: true }
     });
 
     if (
       !session ||
+      session.id !== claims.sid ||
       session.borrowerId !== claims.sub ||
       session.borrower.lenderId !== claims.lid ||
+      session.tenantId !== claims.lid ||
+      (session.deviceId ?? null) !== (claims.did ?? null) ||
+      (requestDeviceId && session.deviceId && requestDeviceId !== session.deviceId) ||
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now()
     ) {
+      await this.auditService.write({
+        event: 'AUTH_REFRESH_FAIL',
+        actorType: 'SYSTEM',
+        actorId: claims.sub ?? null,
+        metadata: {
+          reason: 'SESSION_INVALID',
+          refreshJti: claims.jti,
+          requestDeviceId
+        }
+      });
+      await this.auditLogger.log({
+        event: 'AUTH_REFRESH_FAIL',
+        tenantId: session?.tenantId ?? claims.lid ?? null,
+        actorType: 'BORROWER',
+        actorId: claims.sub ?? null,
+        status: 'FAIL',
+        metadata: { reason: 'SESSION_INVALID' }
+      });
+      throw this.unauthorized('UNAUTHORIZED', 'Invalid refresh token.');
+    }
+
+    if (session.replacedByJti) {
+      await this.revokeSessionFamily(session.rootJti, 'TOKEN_REUSE_DETECTED');
+      await this.auditService.write({
+        event: 'AUTH_REFRESH_FAIL',
+        actorType: 'SYSTEM',
+        actorId: session.borrowerId,
+        metadata: {
+          reason: 'TOKEN_REUSE_DETECTED',
+          refreshJti: claims.jti,
+          rootJti: session.rootJti
+        }
+      });
+      await this.auditLogger.log({
+        event: 'AUTH_REFRESH_FAIL',
+        tenantId: session.tenantId,
+        actorType: 'BORROWER',
+        actorId: session.borrowerId,
+        status: 'FAIL',
+        metadata: { reason: 'TOKEN_REUSE_DETECTED' }
+      });
       throw this.unauthorized('UNAUTHORIZED', 'Invalid refresh token.');
     }
 
     const expectedHash = this.hashRefreshToken(input.refreshToken);
     if (!this.safeHashMatch(session.refreshTokenHash, expectedHash)) {
+      await this.auditService.write({
+        event: 'AUTH_REFRESH_FAIL',
+        actorType: 'SYSTEM',
+        actorId: session.borrowerId,
+        metadata: {
+          reason: 'HASH_MISMATCH',
+          refreshJti: claims.jti
+        }
+      });
+      await this.auditLogger.log({
+        event: 'AUTH_REFRESH_FAIL',
+        tenantId: session.tenantId,
+        actorType: 'BORROWER',
+        actorId: session.borrowerId,
+        status: 'FAIL',
+        metadata: { reason: 'HASH_MISMATCH' }
+      });
       throw this.unauthorized('UNAUTHORIZED', 'Invalid refresh token.');
     }
 
-    const rotated = await this.rotateSession(
-      session.id,
+    const rotated = await this.rotateSession(session,
       session.borrowerId,
       session.borrower.lenderId,
       session.borrower.phone,
-      session.borrowerDeviceId
+      session.borrowerDeviceId,
+      session.deviceId
     );
 
     await this.auditService.write({
-      event: 'AUTH_REFRESH',
+      event: 'AUTH_REFRESH_SUCCESS',
       actorType: 'SYSTEM',
       actorId: session.borrowerId,
       metadata: {
         sessionId: session.id,
         newSessionId: rotated.sessionId,
+        previousJti: session.jti,
+        newJti: rotated.jti,
         borrowerId: session.borrowerId
       }
+    });
+    await this.auditLogger.log({
+      event: 'AUTH_REFRESH_SUCCESS',
+      tenantId: session.tenantId,
+      actorType: 'BORROWER',
+      actorId: session.borrowerId,
+      metadata: { previousJti: session.jti, newJti: rotated.jti }
     });
 
     return {
@@ -311,15 +392,13 @@ export class AuthService {
   }
 
   async logout(input: RefreshTokenDto): Promise<{ ok: true }> {
-    const context = this.requestContextService.get();
-    await this.enforceRefreshRateLimit(context.ip);
     const claims = this.verifyRefreshToken(input.refreshToken);
     const session = await this.prisma.session.findUnique({
-      where: { id: claims.sid },
+      where: { jti: claims.jti },
       include: { borrower: true }
     });
 
-    if (!session || session.borrowerId !== claims.sub || session.borrower.lenderId !== claims.lid) {
+    if (!session || session.id !== claims.sid || session.borrowerId !== claims.sub || session.borrower.lenderId !== claims.lid) {
       throw this.unauthorized('UNAUTHORIZED', 'Invalid refresh token.');
     }
 
@@ -328,10 +407,13 @@ export class AuthService {
       throw this.unauthorized('UNAUTHORIZED', 'Invalid refresh token.');
     }
 
-    await this.prisma.session.update({
-      where: { id: session.id },
+    await this.prisma.session.updateMany({
+      where: input.revokeAllForDevice
+        ? { borrowerId: session.borrowerId, tenantId: session.tenantId, deviceId: session.deviceId ?? undefined, revokedAt: null }
+        : { id: session.id },
       data: {
-        revokedAt: new Date()
+        revokedAt: new Date(),
+        revokedReason: input.revokeAllForDevice ? 'LOGOUT_DEVICE' : 'LOGOUT'
       }
     });
 
@@ -341,8 +423,16 @@ export class AuthService {
       actorId: session.borrowerId,
       metadata: {
         sessionId: session.id,
-        borrowerId: session.borrowerId
+        borrowerId: session.borrowerId,
+        revokedAllForDevice: Boolean(input.revokeAllForDevice)
       }
+    });
+    await this.auditLogger.log({
+      event: 'AUTH_LOGOUT',
+      tenantId: session.tenantId,
+      actorType: 'BORROWER',
+      actorId: session.borrowerId,
+      metadata: { revokedAllForDevice: Boolean(input.revokeAllForDevice) }
     });
 
     return { ok: true };
@@ -351,7 +441,12 @@ export class AuthService {
   private verifyRefreshToken(token: string): RefreshClaims {
     try {
       const payload = verify(token, this.getRequiredString('JWT_REFRESH_SECRET')) as RefreshClaims;
-      if (payload.type !== 'refresh' || typeof payload.sub !== 'string' || typeof payload.sid !== 'string') {
+      if (
+        payload.type !== 'refresh' ||
+        typeof payload.sub !== 'string' ||
+        typeof payload.sid !== 'string' ||
+        typeof payload.jti !== 'string'
+      ) {
         throw new Error('Invalid refresh token payload');
       }
       if (typeof payload.lid !== 'string' || !payload.lid) {
@@ -364,25 +459,36 @@ export class AuthService {
   }
 
   private async rotateSession(
-    sessionId: string,
+    session: { id: string; jti: string; rootJti: string },
     borrowerId: string,
     lenderId: string,
     phone: string,
-    borrowerDeviceId: string | null
+    borrowerDeviceId: string | null,
+    deviceId: string | null
   ) {
-    const issued = await this.issueTokens({ borrowerId, lenderId, phone, borrowerDeviceId });
+    const issued = await this.issueTokens({
+      borrowerId,
+      lenderId,
+      phone,
+      borrowerDeviceId,
+      deviceId,
+      rootJti: session.rootJti
+    });
 
     await this.prisma.session.update({
-      where: { id: sessionId },
+      where: { id: session.id },
       data: {
-        revokedAt: new Date()
+        revokedAt: new Date(),
+        revokedReason: 'ROTATED',
+        replacedByJti: issued.jti
       }
     });
 
     return {
       accessToken: issued.accessToken,
       refreshToken: issued.refreshToken,
-      sessionId: issued.sessionId
+      sessionId: issued.sessionId,
+      jti: issued.jti
     };
   }
 
@@ -391,13 +497,21 @@ export class AuthService {
     lenderId: string;
     phone: string | null;
     borrowerDeviceId: string | null;
-  }): Promise<{ accessToken: string; refreshToken: string; sessionId: string }> {
+    deviceId: string | null;
+    rootJti?: string;
+  }): Promise<{ accessToken: string; refreshToken: string; sessionId: string; jti: string }> {
     const now = new Date();
     const refreshTtlSec = this.configService.get('JWT_REFRESH_TTL_SEC', { infer: true });
+    const jti = randomUUID();
+    const rootJti = params.rootJti ?? jti;
 
     const placeholderHash = this.hashRefreshToken(randomUUID());
     const session = await this.prisma.session.create({
       data: {
+        jti,
+        rootJti,
+        tenantId: params.lenderId,
+        deviceId: params.deviceId,
         borrowerId: params.borrowerId,
         borrowerDeviceId: params.borrowerDeviceId,
         refreshTokenHash: placeholderHash,
@@ -423,13 +537,13 @@ export class AuthService {
         type: 'refresh',
         sid: session.id,
         lid: params.lenderId,
-        did: params.borrowerDeviceId
+        did: params.deviceId
       },
       this.getRequiredString('JWT_REFRESH_SECRET'),
       {
         subject: params.borrowerId,
         expiresIn: `${refreshTtlSec}s`,
-        jwtid: randomUUID()
+        jwtid: jti
       }
     );
 
@@ -443,7 +557,8 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      sessionId: session.id
+      sessionId: session.id,
+      jti
     };
   }
 
@@ -530,6 +645,13 @@ export class AuthService {
         reason
       }
     });
+    await this.auditLogger.log({
+      event: 'AUTH_LOGIN_FAIL',
+      actorType: 'SYSTEM',
+      actorId: null,
+      status: 'FAIL',
+      metadata: { phone, reason }
+    });
   }
 
   private unauthorized(code: string, message: string): UnauthorizedException {
@@ -540,49 +662,25 @@ export class AuthService {
     });
   }
 
-  private async enforceBorrowerLoginRateLimit(ip: string | null): Promise<void> {
-    if (!ip) {
-      return;
-    }
-
-    const max = this.configService.get('BORROWER_LOGIN_RATE_LIMIT_IP_MAX', { infer: true });
-    const windowSec = this.configService.get('BORROWER_LOGIN_RATE_LIMIT_IP_WINDOW_SEC', { infer: true });
-    const count = await this.redisService.incrementWithWindow(`rl:borrower:login:ip:${ip}`, windowSec);
-    if (count > max) {
-      throw new HttpException(
-        {
-          code: 'RATE_LIMITED',
-          message: 'Too many login attempts. Please try again later.',
-          details: {
-            reason: 'borrower_login_rate_limit'
-          }
-        },
-        HttpStatus.TOO_MANY_REQUESTS
-      );
-    }
+  private async revokeSessionFamily(rootJti: string, reason: string): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: {
+        rootJti,
+        revokedAt: null
+      },
+      data: {
+        revokedAt: new Date(),
+        revokedReason: reason
+      }
+    });
   }
 
-  
-  private async enforceRefreshRateLimit(ip: string | null): Promise<void> {
-    if (!ip) {
-      return;
+  private getRequestDeviceId(): string | null {
+    const fromHeader = this.request.header('x-device-id') ?? this.request.header('X-Device-Id');
+    if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
+      return fromHeader.trim();
     }
-
-    const max = this.configService.get('REFRESH_RATE_LIMIT_IP_MAX', { infer: true });
-    const windowSec = this.configService.get('REFRESH_RATE_LIMIT_IP_WINDOW_SEC', { infer: true });
-    const count = await this.redisService.incrementWithWindow(`rl:refresh:borrower:ip:${ip}`, windowSec);
-    if (count > max) {
-      throw new HttpException(
-        {
-          code: 'RATE_LIMITED',
-          message: 'Too many refresh requests. Please try again later.',
-          details: {
-            reason: 'refresh_rate_limit'
-          }
-        },
-        HttpStatus.TOO_MANY_REQUESTS
-      );
-    }
+    return null;
   }
 }
 

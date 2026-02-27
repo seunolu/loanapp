@@ -61,6 +61,8 @@ export class BorrowerJwtStrategy extends PassportStrategy(Strategy, 'borrower-jw
       session.borrowerId !== payload.sub ||
       session.borrower.lenderId !== payload.lid ||
       session.borrower.lenderId !== payload.tenantId ||
+      session.tenantId !== payload.tenantId ||
+      session.replacedByJti !== null ||
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now()
     ) {

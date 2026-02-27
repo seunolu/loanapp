@@ -571,17 +571,26 @@ model BorrowerDevice {
 
 model Session {
   id               String          @id @default(cuid())
+  jti              String          @unique
+  rootJti          String
+  replacedByJti    String?
+  tenantId         String
+  deviceId         String?
   borrowerId       String
   borrowerDeviceId String?
   refreshTokenHash String
   expiresAt        DateTime
   revokedAt        DateTime?
+  revokedReason    String?
   lastSeenAt       DateTime
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   borrowerDevice   BorrowerDevice? @relation(fields: [borrowerDeviceId], references: [id])
   borrower         Borrower        @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
 
+  @@index([jti])
+  @@index([rootJti])
+  @@index([tenantId, borrowerId, deviceId])
   @@index([borrowerId])
   @@index([borrowerDeviceId])
   @@index([expiresAt])

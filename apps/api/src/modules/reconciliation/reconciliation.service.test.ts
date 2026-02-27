@@ -23,6 +23,7 @@ test('role permissions for issue patch are enforced', async () => {
       }
     } as any,
     { log: async () => undefined } as any,
+    {} as any,
     {} as any
   );
 
@@ -62,6 +63,7 @@ test('upsertIssue is idempotent for same unique fingerprint', async () => {
         }
       }
     } as any,
+    {} as any,
     {} as any,
     {} as any
   );
@@ -131,6 +133,7 @@ test('missing ledger is classified as CRITICAL and supports auto-heal', async ()
       }
     } as any,
     { log: async () => undefined } as any,
+    {} as any,
     {
       postEntry: async () => {
         autoHealCalls += 1;
@@ -199,6 +202,7 @@ test('amount mismatch is HIGH when delta exceeds rounding threshold', async () =
       }
     } as any,
     { log: async () => undefined } as any,
+    {} as any,
     {} as any
   );
 
@@ -224,7 +228,7 @@ test('reconciliation status transition guard enforces allowed transitions', () =
 });
 
 test('batch close is SUPER_ADMIN only', async () => {
-  const service = new ReconciliationService({} as any, {} as any, {} as any);
+  const service = new ReconciliationService({} as any, {} as any, {} as any, {} as any);
   await assert.rejects(
     () =>
       service.closeSettlementBatch(
@@ -255,6 +259,7 @@ test('write-off resolution is SUPER_ADMIN only', async () => {
           }
         })
     } as any,
+    {} as any,
     {} as any,
     {} as any
   );

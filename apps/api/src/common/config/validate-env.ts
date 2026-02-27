@@ -17,6 +17,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
     const requiredProdValues: Array<[keyof Env, string | undefined]> = [
       ['DATABASE_URL', env.DATABASE_URL],
       ['REDIS_URL', env.REDIS_URL],
+      ['TRUST_PROXY_HOPS', String(env.TRUST_PROXY_HOPS)],
       ['JWT_ACCESS_SECRET', env.JWT_ACCESS_SECRET],
       ['JWT_REFRESH_SECRET', env.JWT_REFRESH_SECRET],
       ['ADMIN_JWT_ACCESS_SECRET', env.ADMIN_JWT_ACCESS_SECRET],
@@ -27,7 +28,15 @@ export function validateEnv(config: Record<string, unknown>): Env {
       ['PAYSTACK_BASE_URL', env.PAYSTACK_BASE_URL],
       ['PAYSTACK_WEBHOOK_SECRET', env.PAYSTACK_WEBHOOK_SECRET],
       ['CORS_ORIGINS', env.CORS_ORIGINS],
-      ['CORS_ALLOWED_ORIGINS', env.CORS_ALLOWED_ORIGINS]
+      ['CORS_ALLOWED_ORIGINS', env.CORS_ALLOWED_ORIGINS],
+      ['RATE_LIMIT_GENERIC_MAX', String(env.RATE_LIMIT_GENERIC_MAX)],
+      ['RATE_LIMIT_GENERIC_WINDOW_SECONDS', String(env.RATE_LIMIT_GENERIC_WINDOW_SECONDS)],
+      ['RATE_LIMIT_AUTH_MAX', String(env.RATE_LIMIT_AUTH_MAX)],
+      ['RATE_LIMIT_AUTH_WINDOW_SECONDS', String(env.RATE_LIMIT_AUTH_WINDOW_SECONDS)],
+      ['RATE_LIMIT_OTP_MAX', String(env.RATE_LIMIT_OTP_MAX)],
+      ['RATE_LIMIT_OTP_WINDOW_SECONDS', String(env.RATE_LIMIT_OTP_WINDOW_SECONDS)],
+      ['RATE_LIMIT_LOAN_APPLICATION_SUBMIT_MAX', String(env.RATE_LIMIT_LOAN_APPLICATION_SUBMIT_MAX)],
+      ['RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS', String(env.RATE_LIMIT_LOAN_APPLICATION_SUBMIT_WINDOW_SECONDS)]
     ];
 
     const missing = requiredProdValues

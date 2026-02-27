@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Scope } from '@nestjs/common';
 import { FileStatus, KycCaseStatus } from '@prisma/client';
+import { AuditLoggerService } from '../../common/audit/audit-logger.service';
 import { AuditService } from '../../common/audit/audit.service';
 import type { BorrowerPrincipal } from '../../common/auth/borrower-principal';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -11,7 +12,8 @@ import type { SubmitKycDto } from './dto/submit-kyc.dto';
 export class KycService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly auditLogger: AuditLoggerService
   ) {}
 
   async submit(principal: BorrowerPrincipal, input: SubmitKycDto): Promise<KycSubmitResponseDto> {
@@ -133,6 +135,13 @@ export class KycService {
         entityId: result.id,
         documentCount: uniqueFileIds.length
       }
+    });
+    await this.auditLogger.log({
+      event: 'KYC_UPDATE',
+      tenantId: principal.tenantId,
+      actorType: 'BORROWER',
+      actorId: principal.borrowerId,
+      metadata: { kycCaseId: result.id, documentCount: uniqueFileIds.length }
     });
 
     return {

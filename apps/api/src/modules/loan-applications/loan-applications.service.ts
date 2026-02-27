@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, TenantAdminRole, TenantLoanApplicationStatus, TenantRepaymentScheduleStatus } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
+import { AuditLoggerService } from '../../common/audit/audit-logger.service';
 import { PrismaService } from '../../common/database/prisma.service';
 import { LoanBalanceService } from '../../common/ledger/loan-balance.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -43,6 +44,7 @@ export class LoanApplicationsService {
     private readonly tenantContextService: TenantContextService,
     private readonly tenantScopedPrisma: TenantScopedPrismaService,
     private readonly auditService: AuditService,
+    private readonly auditLogger: AuditLoggerService,
     private readonly loanBalanceService: LoanBalanceService,
     private readonly ledgerService: LedgerService,
     private readonly riskService: RiskService,
@@ -140,6 +142,13 @@ export class LoanApplicationsService {
       return row;
     });
     this.metricsService.increment('loan_application_submitted_total', tenantId);
+    await this.auditLogger.log({
+      event: 'LOAN_APPLY',
+      tenantId,
+      actorType: 'BORROWER',
+      actorId: input.phone.trim(),
+      metadata: { loanApplicationId: created.id, amount: created.amount, tenorMonths: created.tenorMonths }
+    });
 
     return {
       id: created.id,
@@ -595,6 +604,13 @@ export class LoanApplicationsService {
           from: transitionFrom,
           to: toStatus
         })
+      });
+      await this.auditLogger.log({
+        event: 'LOAN_DECISION',
+        tenantId,
+        actorType: 'TENANT_ADMIN',
+        actorId: changedByUserId ?? context.actorId,
+        metadata: { loanApplicationId, fromStatus: transitionFrom, toStatus }
       });
     }
     this.logger.log({

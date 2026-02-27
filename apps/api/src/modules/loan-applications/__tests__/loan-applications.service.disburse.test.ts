@@ -66,6 +66,7 @@ function buildHarness(status: TenantLoanApplicationStatus, failLedger = false) {
     { requireResolvedTenantId: async () => 'tenant_1' } as any,
     { findTenantLoanApplicationById: async () => ({ ...committedLoan, fullName: '', phone: '', amount: 0, tenorMonths: 0, createdAt: now, updatedAt: now, requestedAmount: new Prisma.Decimal(0), approvedAmount: null, annualInterestRate: null, lastAccruedAt: null, outstandingPrincipal: new Prisma.Decimal(0), outstandingInterest: new Prisma.Decimal(0), outstandingFees: new Prisma.Decimal(0), purpose: null, employmentStatus: null, incomeBand: null, email: null, dob: null, address: null }) } as any,
     {} as any,
+    {} as any,
     {
       getBalances: async () => ({
         principalOutstanding: new Prisma.Decimal(0),

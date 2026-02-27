@@ -37,6 +37,7 @@ function buildService(overrides?: {
     prisma as any,
     gateway as any,
     auditService,
+    {} as any,
     tenantLedgerService,
     financialInvariantsService,
     idempotencyService,

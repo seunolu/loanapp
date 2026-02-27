@@ -17,7 +17,7 @@ import { buildPinoHttpConfig } from './common/logger/pino-http.config';
 import { GlobalRateLimitMiddleware } from './common/middleware/global-rate-limit.middleware';
 import { RedisRateLimitMiddleware } from './common/rate-limit/redis-rate-limit.middleware';
 import { RateLimitGuard } from './common/rate-limit/rate-limit.guard';
-import { RateLimitPolicyService } from './common/rate-limit/rate-limit.policy';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { FeatureFlagModule } from './common/feature-flags/feature-flag.module';
 import { HttpMetricsInterceptor } from './common/interceptors/http-metrics.interceptor';
 import { RequestLogContextInterceptor } from './common/interceptors/request-log-context.interceptor';
@@ -30,6 +30,7 @@ import { NotificationsModule } from './common/notifications/notifications.module
 import { RedisModule } from './common/redis/redis.module';
 import { RiskModule } from './common/risk/risk.module';
 import { RbacModule } from './common/rbac/rbac.module';
+import { AuthenticatedTenantInterceptor } from './common/tenant/authenticated-tenant.interceptor';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { AdminCollectionsModule } from './modules/admin-collections/admin-collections.module';
 import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
@@ -103,6 +104,7 @@ import { AdminConfirmationModule } from './common/admin-confirmation/admin-confi
     RequestContextModule,
     IntegrationsModule,
     RedisModule,
+    RateLimitModule,
     RiskModule,
     RbacModule,
     JobsModule,
@@ -153,7 +155,6 @@ import { AdminConfirmationModule } from './common/admin-confirmation/admin-confi
     HealthService,
     GlobalRateLimitMiddleware,
     RedisRateLimitMiddleware,
-    RateLimitPolicyService,
     GlobalExceptionFilter,
     {
       provide: APP_INTERCEPTOR,
@@ -162,6 +163,10 @@ import { AdminConfirmationModule } from './common/admin-confirmation/admin-confi
     {
       provide: APP_INTERCEPTOR,
       useClass: HttpMetricsInterceptor
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuthenticatedTenantInterceptor
     },
     {
       provide: APP_GUARD,

@@ -210,6 +210,7 @@ function buildTransitionHarness(options: TransitionHarnessOptions) {
         callLog.auditTransitionCalls.push(payload);
       }
     } as any,
+    {} as any,
     {
       getBalances: async () => ({
         principalOutstanding: new Prisma.Decimal(options.balances?.principal ?? 0),

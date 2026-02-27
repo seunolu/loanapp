@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTa
 import { CurrentBorrower } from '../../common/auth/current-borrower.decorator';
 import type { BorrowerPrincipal } from '../../common/auth/borrower-principal';
 import { Idempotent } from '../../common/idempotency/idempotency.decorator';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 import { BorrowerAuthGuard } from '../auth/guards/borrower-auth.guard';
 import { AcceptOfferResponseDto } from './dto/accept-offer-response.dto';
 import { CreateLoanApplicationDto } from './dto/create-loan-application.dto';
@@ -20,6 +21,7 @@ export class LoansController {
   constructor(private readonly loansService: LoansService) {}
 
   @Post('applications')
+  @RateLimit('LOAN_APPLICATION_SUBMIT')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create loan application for authenticated borrower' })
   @ApiOkResponse({ type: CreateLoanApplicationResponseDto })

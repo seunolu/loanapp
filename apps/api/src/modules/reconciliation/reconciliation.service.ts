@@ -13,6 +13,7 @@ import {
   TenantLedgerDirection,
   TenantLedgerEntryType
 } from '@prisma/client';
+import { AuditLoggerService } from '../../common/audit/audit-logger.service';
 import { AuditService } from '../../common/audit/audit.service';
 import type { TenantAdminPrincipal } from '../../common/auth/tenant-admin-principal';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -136,6 +137,7 @@ export class ReconciliationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly auditLogger: AuditLoggerService,
     private readonly tenantLedgerService: TenantLedgerService
   ) {}
 
@@ -200,6 +202,13 @@ export class ReconciliationService {
       this.logger.log(
         `reconciliation completed tenant=${principal.tenantId} run=${run.id} type=${input.type} scanned=${summary.scanned} created=${summary.issuesCreated}`
       );
+      await this.auditLogger.log({
+        event: 'PAYMENT_RECONCILIATION',
+        tenantId: principal.tenantId,
+        actorType: 'TENANT_ADMIN',
+        actorId: principal.adminId,
+        metadata: { runId: run.id, type: input.type, status: 'COMPLETED', scanned: summary.scanned }
+      });
       return {
         runId: run.id,
         ...summary
@@ -215,6 +224,14 @@ export class ReconciliationService {
             error: error instanceof Error ? error.message : 'unknown'
           }
         }
+      });
+      await this.auditLogger.log({
+        event: 'PAYMENT_RECONCILIATION',
+        tenantId: principal.tenantId,
+        actorType: 'TENANT_ADMIN',
+        actorId: principal.adminId,
+        status: 'FAIL',
+        metadata: { runId: run.id, type: input.type, status: 'FAILED' }
       });
       throw error;
     }
@@ -944,6 +961,13 @@ export class ReconciliationService {
           ...summary
         }
       });
+      await this.auditLogger.log({
+        event: 'PAYMENT_RECONCILIATION',
+        tenantId: principal.tenantId,
+        actorType: 'TENANT_ADMIN',
+        actorId: principal.adminId,
+        metadata: { runId: run.id, provider, status: 'SUCCESS', ...summary }
+      });
       return updated;
     } catch (error) {
       await prisma.reconciliationJobRun.update({
@@ -953,6 +977,14 @@ export class ReconciliationService {
           finishedAt: new Date(),
           errorMessage: error instanceof Error ? error.message : 'unknown_error'
         }
+      });
+      await this.auditLogger.log({
+        event: 'PAYMENT_RECONCILIATION',
+        tenantId: principal.tenantId,
+        actorType: 'TENANT_ADMIN',
+        actorId: principal.adminId,
+        status: 'FAIL',
+        metadata: { runId: run.id, provider: input.provider, status: 'FAILED' }
       });
       throw error;
     }

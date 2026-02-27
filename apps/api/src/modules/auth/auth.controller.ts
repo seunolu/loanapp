@@ -15,7 +15,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('request-otp')
-  @RateLimit('AUTH')
+  @RateLimit('OTP')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request an OTP challenge' })
   @ApiHeader({ name: 'X-Lender-Id', required: true, description: 'Tenant lender ID for anonymous auth flow' })
@@ -25,7 +25,7 @@ export class AuthController {
   }
 
   @Post('verify-otp')
-  @RateLimit('AUTH')
+  @RateLimit('OTP')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and issue auth tokens' })
   @ApiHeader({ name: 'X-Lender-Id', required: true, description: 'Tenant lender ID for anonymous auth flow' })

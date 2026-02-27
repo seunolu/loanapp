@@ -348,6 +348,68 @@ export type BorrowerMandate = {
   updatedAt: string;
 };
 
+export type BorrowerRecentLoan = {
+  id: string;
+  amountKobo: number;
+  status: string;
+  createdAt: string;
+};
+
+function getStatusFromUnknownError(error: unknown): number | null {
+  if (error instanceof ApiError) {
+    return error.status;
+  }
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status?: unknown }).status;
+    if (typeof status === 'number') {
+      return status;
+    }
+  }
+  return null;
+}
+
+function normalizeRecentLoans(payload: unknown): BorrowerRecentLoan[] {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as { items?: unknown[] }).items)
+      ? (payload as { items: unknown[] }).items
+      : [];
+
+  return rawItems
+    .map((item): BorrowerRecentLoan | null => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+      const raw = item as {
+        id?: unknown;
+        status?: unknown;
+        createdAt?: unknown;
+        amountKobo?: unknown;
+        amount?: unknown;
+      };
+      if (typeof raw.id !== 'string' || typeof raw.status !== 'string' || typeof raw.createdAt !== 'string') {
+        return null;
+      }
+
+      const numericAmount =
+        typeof raw.amountKobo === 'number'
+          ? raw.amountKobo
+          : typeof raw.amount === 'number'
+            ? raw.amount
+            : typeof raw.amount === 'string'
+              ? Number(raw.amount)
+              : 0;
+
+      return {
+        id: raw.id,
+        status: raw.status,
+        createdAt: raw.createdAt,
+        amountKobo: Number.isFinite(numericAmount) ? Math.max(0, Math.round(numericAmount)) : 0
+      };
+    })
+    .filter((item): item is BorrowerRecentLoan => Boolean(item));
+}
+
 export async function initiateRepayment(input: {
   loanId: string;
   amount: number;
@@ -376,6 +438,27 @@ export async function listMyMandates(): Promise<BorrowerMandate[]> {
     method: 'GET',
     requiresAuth: true
   });
+}
+
+export async function listRecentLoans(limit = 3): Promise<BorrowerRecentLoan[]> {
+  const endpoints = [`/loans?limit=${limit}`, `/loans/applications?limit=${limit}`];
+
+  for (const endpoint of endpoints) {
+    try {
+      const payload = await apiRequest<unknown>(endpoint, {
+        method: 'GET',
+        requiresAuth: true
+      });
+      return normalizeRecentLoans(payload).slice(0, limit);
+    } catch (error: unknown) {
+      if (getStatusFromUnknownError(error) === 404) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return [];
 }
 
 export async function hasActiveSession(): Promise<boolean> {

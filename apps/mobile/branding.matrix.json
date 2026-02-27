@@ -1,0 +1,29 @@
+{
+  "default": {
+    "name": "LoanApp Mobile",
+    "slug": "loanapp-mobile",
+    "scheme": "loanapp-mobile",
+    "androidPackage": "com.loanapp.mobile",
+    "iosBundleIdentifier": "com.loanapp.mobile",
+    "defaultTenantSlug": "demo",
+    "adaptiveIconBackground": "#ffffff"
+  },
+  "demo": {
+    "name": "LoanApp Demo",
+    "slug": "loanapp-demo",
+    "scheme": "loanapp-demo",
+    "androidPackage": "com.loanapp.demo",
+    "iosBundleIdentifier": "com.loanapp.demo",
+    "defaultTenantSlug": "demo",
+    "adaptiveIconBackground": "#ffffff"
+  },
+  "acme": {
+    "name": "Acme Loans",
+    "slug": "acme-loans",
+    "scheme": "acme-loans",
+    "androidPackage": "com.acme.loans",
+    "iosBundleIdentifier": "com.acme.loans",
+    "defaultTenantSlug": "acme",
+    "adaptiveIconBackground": "#ffffff"
+  }
+}

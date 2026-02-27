@@ -1,18 +1,29 @@
 import * as React from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { useTheme } from '../theme';
 
-export function Card({ style, ...props }: ViewProps): React.JSX.Element {
-  return <View style={[styles.card, style]} {...props} />;
+export function Card({ style, ...rest }: ViewProps): React.JSX.Element {
+  const t = useTheme();
+
+  return (
+    <View
+      {...rest}
+      style={[
+        styles.base,
+        {
+          backgroundColor: t.colors.surface,
+          borderColor: t.colors.border,
+          borderRadius: t.radius.lg,
+          padding: t.spacing.lg
+        },
+        style
+      ]}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg
+  base: {
+    borderWidth: 1
   }
 });
-

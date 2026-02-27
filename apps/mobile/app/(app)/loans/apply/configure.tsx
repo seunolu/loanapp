@@ -1,11 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Screen } from '../../../../src/ui/Screen';
-import { SectionHeader } from '../../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../../src/ui/theme';
+import { Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function ConfigureLoanScreen() {
   const [amount, setAmount] = React.useState(150000);
@@ -44,3 +40,5 @@ const styles = StyleSheet.create({
   summary: { ...typography.subtitle, color: colors.text },
   caption: { ...typography.body, color: colors.textMuted }
 });
+
+

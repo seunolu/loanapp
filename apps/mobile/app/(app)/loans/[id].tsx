@@ -1,10 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { Badge } from '../../../src/ui/Badge';
-import { Card } from '../../../src/ui/Card';
-import { Screen } from '../../../src/ui/Screen';
-import { SectionHeader } from '../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../src/ui/theme';
+import { Badge, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../src/ui';
 
 const timeline = ['SUBMITTED', 'UNDER_REVIEW', 'REQUESTED_DOCUMENTS', 'APPROVED', 'DISBURSED'];
 
@@ -42,4 +38,6 @@ const styles = StyleSheet.create({
   title: { ...typography.subtitle, color: colors.text },
   caption: { ...typography.body, color: colors.textMuted }
 });
+
+
 

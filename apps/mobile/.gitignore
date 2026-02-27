@@ -7,3 +7,22 @@ node_modules/
 
 expo-env.d.ts
 # @end expo-cli
+
+
+# Next.js
+.next/
+apps/*/.next/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+
+# Node
+node_modules/
+
+# Debug
+pnpm-install-debug.ndjson
+
+# OS
+.DS_Store

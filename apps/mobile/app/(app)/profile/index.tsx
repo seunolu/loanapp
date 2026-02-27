@@ -2,12 +2,7 @@ import { Link } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../../src/providers/auth-provider';
 import { useKyc } from '../../../src/providers/kyc-provider';
-import { Badge } from '../../../src/ui/Badge';
-import { Button } from '../../../src/ui/Button';
-import { Card } from '../../../src/ui/Card';
-import { Screen } from '../../../src/ui/Screen';
-import { SectionHeader } from '../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../src/ui/theme';
+import { Badge, Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../src/ui';
 
 export default function ProfileIndexScreen() {
   const { logout } = useAuth();
@@ -38,3 +33,5 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.text },
   tiles: { gap: spacing.sm }
 });
+
+

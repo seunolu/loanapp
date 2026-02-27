@@ -54,9 +54,11 @@ export default function LoginScreen() {
         <Pressable disabled={otpRequest.isPending} onPress={onRequestOtp} style={styles.button}>
           {otpRequest.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Request OTP</Text>}
         </Pressable>
-        <Pressable onPress={() => router.replace('/tenant')}>
-          <Text style={styles.link}>Change lender</Text>
-        </Pressable>
+        {__DEV__ ? (
+          <Pressable onPress={() => router.replace('/tenant')}>
+            <Text style={styles.link}>Change lender (dev)</Text>
+          </Pressable>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
     </SafeAreaView>

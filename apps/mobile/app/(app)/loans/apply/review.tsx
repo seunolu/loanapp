@@ -1,11 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Screen } from '../../../../src/ui/Screen';
-import { SectionHeader } from '../../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../../src/ui/theme';
+import { Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function ReviewLoanScreen() {
   const [accepted, setAccepted] = React.useState(false);
@@ -50,3 +46,5 @@ const styles = StyleSheet.create({
   value: { ...typography.body, color: colors.text, fontWeight: '600' },
   body: { ...typography.body, color: colors.text }
 });
+
+

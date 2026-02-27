@@ -1,0 +1,50 @@
+export const palette = {
+  slate950: '#0B1F33',
+  slate700: '#30475D',
+  slate500: '#5E7286',
+  slate300: '#9FB1C3',
+  slate200: '#DDE6EE',
+  slate100: '#EEF3F7',
+  white: '#FFFFFF',
+  blue700: '#0A4A7A',
+  blue800: '#083B62',
+  blue100: '#E7F0FB',
+  green700: '#0F7B6C',
+  green100: '#E6F5F2',
+  amber700: '#B76C0A',
+  amber100: '#FFF4E5',
+  red700: '#C0352E',
+  red100: '#FDECEA'
+} as const;
+
+export const colors = {
+  background: '#F3F7FB',
+  bg: '#F3F7FB',
+  surface: palette.white,
+  surface2: '#F8FAFC',
+  surfaceMuted: '#F8FAFC',
+  border: palette.slate200,
+  text: palette.slate950,
+  muted: palette.slate500,
+  textMuted: palette.slate500,
+  textInverse: palette.white,
+  primary: palette.blue700,
+  primaryPressed: palette.blue800,
+  primaryText: palette.white,
+  secondary: '#E8F1F8',
+  info: '#2B6CB0',
+  infoSurface: palette.blue100,
+  infoBorder: '#BFDBFE',
+  success: palette.green700,
+  successSurface: palette.green100,
+  successBorder: '#BBF7D0',
+  warning: palette.amber700,
+  warningSurface: palette.amber100,
+  warningBorder: '#FDE68A',
+  danger: palette.red700,
+  dangerSurface: palette.red100,
+  dangerBorder: '#FECACA',
+  overlay: 'rgba(11, 31, 51, 0.48)'
+} as const;
+
+export type Colors = typeof colors;

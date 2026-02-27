@@ -1,11 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { Button } from '../../src/ui/Button';
-import { Card } from '../../src/ui/Card';
-import { Input } from '../../src/ui/Input';
-import { Screen } from '../../src/ui/Screen';
-import { colors, typography } from '../../src/ui/theme';
+import { Button, Card, Input, Screen, colors, typography } from '../../src/ui';
 
 export default function ForgotPasswordScreen() {
   const [phone, setPhone] = React.useState('');
@@ -23,3 +19,5 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   title: { ...typography.title, color: colors.text }
 });
+
+

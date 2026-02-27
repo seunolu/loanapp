@@ -1,11 +1,6 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { Badge } from '../../../../src/ui/Badge';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Screen } from '../../../../src/ui/Screen';
-import { SectionHeader } from '../../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../../src/ui/theme';
+import { Badge, Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function OffersScreen() {
   return (
@@ -30,3 +25,5 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }
 });
+
+

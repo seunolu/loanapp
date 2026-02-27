@@ -1,82 +1,88 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text } from '../primitives';
+import { useTheme } from '../theme';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
-type Size = 'sm' | 'md' | 'lg';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 type ButtonProps = {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  label?: string;
   onPress?: () => void;
-  variant?: Variant;
-  size?: Size;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function Button({
   children,
+  label,
   onPress,
   variant = 'primary',
   size = 'md',
   disabled = false,
   loading = false,
-  fullWidth = false
+  fullWidth = false,
+  style
 }: ButtonProps): React.JSX.Element {
-  const isDisabled = disabled || loading;
+  const t = useTheme();
+  const isBlocked = disabled || loading;
+  const textColor = variant === 'primary' || variant === 'danger' ? t.colors.textInverse : t.colors.text;
+  const text = children ?? label;
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={isDisabled}
-      style={({ pressed }) => [
+      disabled={isBlocked}
+      style={[
         styles.base,
-        sizeStyles[size],
-        variantStyles[variant],
+        { borderRadius: t.radius.md, gap: t.spacing.sm, paddingHorizontal: t.spacing.lg },
+        sizeStyles(t)[size],
+        variantStyles(t)[variant],
         fullWidth ? styles.fullWidth : null,
-        pressed ? styles.pressed : null,
-        isDisabled ? styles.disabled : null
+        isBlocked ? styles.disabled : null,
+        style
       ]}
     >
-      {loading ? <ActivityIndicator size="small" color={textColorByVariant[variant]} /> : null}
-      <Text style={[styles.text, { color: textColorByVariant[variant] }]}>{children}</Text>
+      {loading ? <ActivityIndicator color={textColor} size="small" /> : null}
+      <Text variant="button" style={{ color: textColor }}>
+        {text}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 44,
-    borderRadius: radius.md,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg
+    flexDirection: 'row'
   },
-  fullWidth: { width: '100%' },
-  disabled: { opacity: 0.6 },
-  pressed: { opacity: 0.9 },
-  text: {
-    ...typography.button
+  fullWidth: {
+    width: '100%'
+  },
+  disabled: {
+    opacity: 0.55
   }
 });
 
-const sizeStyles = StyleSheet.create({
-  sm: { minHeight: 44, paddingVertical: spacing.sm },
-  md: { minHeight: 46, paddingVertical: spacing.md },
-  lg: { minHeight: 50, paddingVertical: spacing.md }
-});
+const sizeStyles = (t: ReturnType<typeof useTheme>) =>
+  StyleSheet.create({
+    sm: { minHeight: 42, paddingVertical: t.spacing.sm },
+    md: { minHeight: 46, paddingVertical: t.spacing.md },
+    lg: { minHeight: 50, paddingVertical: t.spacing.md }
+  });
 
-const variantStyles = StyleSheet.create({
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  ghost: { backgroundColor: 'transparent' }
-});
+const variantStyles = (t: ReturnType<typeof useTheme>) =>
+  StyleSheet.create({
+    primary: { backgroundColor: t.colors.primary },
+    secondary: { backgroundColor: t.colors.surface, borderWidth: 1, borderColor: t.colors.border },
+    ghost: { backgroundColor: 'transparent' },
+    danger: { backgroundColor: t.colors.danger }
+  });
 
-const textColorByVariant: Record<Variant, string> = {
-  primary: colors.primaryText,
-  secondary: colors.text,
-  ghost: colors.text
-};
-
+export type { ButtonProps, ButtonSize, ButtonVariant };

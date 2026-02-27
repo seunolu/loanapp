@@ -1,9 +1,6 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Screen } from '../../../../src/ui/Screen';
-import { colors, typography } from '../../../../src/ui/theme';
+import { Button, Card, Screen, colors, typography } from '../../../../src/ui';
 
 export default function SubmittedScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -26,3 +23,5 @@ const styles = StyleSheet.create({
   title: { ...typography.title, color: colors.success },
   body: { ...typography.body, color: colors.textMuted }
 });
+
+

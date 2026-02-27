@@ -1,11 +1,7 @@
 import { Link, router } from 'expo-router';
 import * as React from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
-import { Button } from '../../src/ui/Button';
-import { Card } from '../../src/ui/Card';
-import { Input } from '../../src/ui/Input';
-import { Screen } from '../../src/ui/Screen';
-import { colors, spacing, typography } from '../../src/ui/theme';
+import { Alert, StyleSheet } from 'react-native';
+import { Button, Card, Input, Screen, ScreenFooter, ScreenHeader, colors, spacing, typography } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
 
 export default function LoginScreen() {
@@ -28,24 +24,31 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen>
-      <Text style={styles.title}>Welcome back</Text>
+    <Screen
+      preset="fixed"
+      safeTop={false}
+      header={<ScreenHeader title="Welcome back" subtitle="Log in to continue" safeTop />}
+      footer={
+        <ScreenFooter style={styles.footer}>
+          <Link href={'/forgot-password' as any} style={styles.link}>
+            Forgot password?
+          </Link>
+          <Link href={'/signup' as any} style={styles.link}>
+            New here? Create account
+          </Link>
+        </ScreenFooter>
+      }
+    >
       <Card>
         <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
         <Button label="Log In" onPress={onSubmit} loading={loading} />
       </Card>
-      <Link href={'/forgot-password' as any} style={styles.link}>
-        Forgot password?
-      </Link>
-      <Link href={'/signup' as any} style={styles.link}>
-        New here? Create account
-      </Link>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.title, color: colors.text },
+  footer: { gap: spacing.xs },
   link: { ...typography.body, color: colors.info }
 });

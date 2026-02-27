@@ -3,13 +3,7 @@ import * as React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { getIdentityStatus, recordIdentityConsent, verifyIdentityBvn } from '../../../../src/lib/api';
 import { useKyc } from '../../../../src/providers/kyc-provider';
-import { Badge } from '../../../../src/ui/Badge';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Input } from '../../../../src/ui/Input';
-import { Screen } from '../../../../src/ui/Screen';
-import { SectionHeader } from '../../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../../src/ui/theme';
+import { Badge, Button, Card, Input, Screen, SectionHeader, colors, spacing, typography } from '../../../../src/ui';
 
 export default function KycIdentityScreen() {
   const {
@@ -118,4 +112,6 @@ const styles = StyleSheet.create({
   text: { ...typography.body, color: colors.text, flex: 1 },
   error: { ...typography.caption, color: colors.danger, marginTop: spacing.xs }
 });
+
+
 

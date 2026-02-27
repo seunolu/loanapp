@@ -1,4 +1,5 @@
 import { getOrCreateDeviceId } from './device';
+import Constants from 'expo-constants';
 import {
   clearSessionTokens,
   getSessionTokens,
@@ -12,6 +13,11 @@ import type { TenantSnapshot } from '../tenant/tenant-context';
 
 const API_BASE = getApiBaseUrl();
 const API_V1 = `${API_BASE}/api/v1`;
+const DEFAULT_TENANT_SLUG =
+  process.env.EXPO_PUBLIC_DEFAULT_TENANT_SLUG?.trim().toLowerCase() ??
+  String((Constants.expoConfig?.extra as { defaultTenantSlug?: string } | undefined)?.defaultTenantSlug ?? '')
+    .trim()
+    .toLowerCase();
 
 export function getApiBaseUrlSafe(): string {
   return getApiBaseUrl();
@@ -320,17 +326,22 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
 }
 
 export async function loadTenantConfig(slug: string): Promise<TenantPublicConfig> {
-  const response = await apiRequest<TenantPublicConfig>(`/public/config/by-slug?slug=${encodeURIComponent(slug)}`);
-  await setTenantSlug(slug);
+  const normalizedSlug = slug.trim().toLowerCase();
+  const response = await apiRequest<TenantPublicConfig>(`/public/config/by-slug?slug=${encodeURIComponent(normalizedSlug)}`);
+  await setTenantSlug(normalizedSlug);
   return response;
 }
 
 export async function getSelectedTenantConfig(): Promise<TenantPublicConfig> {
-  const slug = await getTenantSlug();
-  if (!slug) {
-    throw new ApiError('Select a tenant first.', 400, 'TENANT_REQUIRED');
+  const storedSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
+  const resolvedSlug = storedSlug || DEFAULT_TENANT_SLUG;
+  if (!resolvedSlug) {
+    throw new ApiError('Tenant is not configured.', 400, 'TENANT_REQUIRED');
   }
-  return loadTenantConfig(slug);
+  if (!storedSlug) {
+    await setTenantSlug(resolvedSlug);
+  }
+  return loadTenantConfig(resolvedSlug);
 }
 
 export async function requestOtp(phone: string): Promise<{ otpRef: string; expiresInSec: number }> {

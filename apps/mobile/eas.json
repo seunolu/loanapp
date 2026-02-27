@@ -1,0 +1,58 @@
+{
+  "cli": {
+    "version": ">= 12.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "APP_BRAND": "default",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "demo"
+      }
+    },
+    "preview-demo": {
+      "distribution": "internal",
+      "channel": "preview-demo",
+      "env": {
+        "APP_BRAND": "demo",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "demo"
+      }
+    },
+    "preview-acme": {
+      "distribution": "internal",
+      "channel": "preview-acme",
+      "env": {
+        "APP_BRAND": "acme",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "acme"
+      }
+    },
+    "production-demo": {
+      "channel": "production-demo",
+      "env": {
+        "APP_BRAND": "demo",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "demo"
+      }
+    },
+    "production-acme": {
+      "channel": "production-acme",
+      "env": {
+        "APP_BRAND": "acme",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "acme"
+      }
+    },
+    "production-custom": {
+      "channel": "production-custom",
+      "env": {
+        "APP_BRAND": "custom",
+        "APP_NAME": "Your Lender App",
+        "APP_SLUG": "your-lender-app",
+        "APP_SCHEME": "your-lender-app",
+        "APP_ANDROID_PACKAGE": "com.yourcompany.yourlender",
+        "APP_IOS_BUNDLE_ID": "com.yourcompany.yourlender",
+        "EXPO_PUBLIC_DEFAULT_TENANT_SLUG": "your-tenant-slug"
+      }
+    }
+  }
+}

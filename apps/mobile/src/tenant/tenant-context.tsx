@@ -1,6 +1,13 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import Constants from 'expo-constants';
+import { getTenantSlug, setTenantSlug } from '../lib/storage';
 
 export const DEFAULT_API_BASE_URL = 'http://10.0.2.2:3000';
+const DEFAULT_TENANT_SLUG =
+  process.env.EXPO_PUBLIC_DEFAULT_TENANT_SLUG?.trim().toLowerCase() ??
+  String((Constants.expoConfig?.extra as { defaultTenantSlug?: string } | undefined)?.defaultTenantSlug ?? '')
+    .trim()
+    .toLowerCase();
 
 export type TenantSnapshot = {
   tenantSlug: string;
@@ -25,17 +32,42 @@ export type TenantContextValue = TenantSnapshot & {
 
 const envApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 const initialState: TenantSnapshot = {
-  tenantSlug: '',
+  tenantSlug: DEFAULT_TENANT_SLUG,
   tenantId: undefined,
   lenderTitle: undefined,
   apiBaseUrl: envApiBaseUrl || DEFAULT_API_BASE_URL,
-  resolved: false
+  resolved: Boolean(DEFAULT_TENANT_SLUG)
 };
 
 const TenantContext = createContext<TenantContextValue | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<TenantSnapshot>(initialState);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const storedSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
+      const slugToUse = storedSlug || DEFAULT_TENANT_SLUG;
+      if (!slugToUse) {
+        return;
+      }
+      if (!storedSlug) {
+        await setTenantSlug(slugToUse);
+      }
+      if (!active) {
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        tenantSlug: slugToUse,
+        resolved: true
+      }));
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const setTenant = useCallback((next: SetTenantInput) => {
     setState((prev) => ({

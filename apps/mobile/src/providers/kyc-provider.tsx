@@ -31,96 +31,107 @@ const orderedSteps: KycStep[] = ['personal', 'identity', 'employment', 'bank', '
 
 const KycContext = React.createContext<KycContextValue | undefined>(undefined);
 
-export function KycProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [state, setState] = React.useState<Record<KycStep, boolean>>({
+type KycStore = {
+  steps: Record<KycStep, boolean>;
+  identityStatus: IdentityStatus;
+  consentAccepted: boolean;
+};
+
+const defaultStore: KycStore = {
+  steps: {
     personal: false,
     identity: false,
     employment: false,
     bank: false,
     nok: false
-  });
-  const [identityStatus, setIdentityStatusState] = React.useState<IdentityStatus>('UNVERIFIED');
-  const [consentAccepted, setConsentAcceptedState] = React.useState(false);
+  },
+  identityStatus: 'UNVERIFIED',
+  consentAccepted: false
+};
+
+export function KycProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const [store, setStore] = React.useState<KycStore>(defaultStore);
+  const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) {
+        setHydrated(true);
+        return;
+      }
       try {
         const parsed = JSON.parse(raw) as {
           steps?: Record<KycStep, boolean>;
           identityStatus?: IdentityStatus;
           consentAccepted?: boolean;
         };
-        if (parsed.steps) setState((prev) => ({ ...prev, ...parsed.steps }));
-        if (parsed.identityStatus) setIdentityStatusState(parsed.identityStatus);
-        if (typeof parsed.consentAccepted === 'boolean') setConsentAcceptedState(parsed.consentAccepted);
+        setStore((prev) => ({
+          steps: parsed.steps ? { ...prev.steps, ...parsed.steps } : prev.steps,
+          identityStatus: parsed.identityStatus ?? prev.identityStatus,
+          consentAccepted: typeof parsed.consentAccepted === 'boolean' ? parsed.consentAccepted : prev.consentAccepted
+        }));
       } catch {
+        setHydrated(true);
         return;
       }
+      setHydrated(true);
     })();
   }, []);
 
-  const persist = React.useCallback(
-    async (nextSteps: Record<KycStep, boolean>, nextIdentityStatus: IdentityStatus, nextConsent: boolean) => {
+  React.useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    (async () => {
       await AsyncStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          steps: nextSteps,
-          identityStatus: nextIdentityStatus,
-          consentAccepted: nextConsent
+          steps: store.steps,
+          identityStatus: store.identityStatus,
+          consentAccepted: store.consentAccepted
         })
       );
-    },
-    []
-  );
+    })();
+  }, [store, hydrated]);
 
-  const markComplete = React.useCallback(
-    async (step: KycStep) => {
-      const next = { ...state, [step]: true };
-      setState(next);
-      await persist(next, identityStatus, consentAccepted);
-    },
-    [state, identityStatus, consentAccepted, persist]
-  );
+  const markComplete = React.useCallback(async (step: KycStep) => {
+    setStore((prev) => ({
+      ...prev,
+      steps: { ...prev.steps, [step]: true }
+    }));
+  }, []);
 
-  const markPending = React.useCallback(
-    async (step: KycStep) => {
-      const next = { ...state, [step]: false };
-      setState(next);
-      await persist(next, identityStatus, consentAccepted);
-    },
-    [state, identityStatus, consentAccepted, persist]
-  );
+  const markPending = React.useCallback(async (step: KycStep) => {
+    setStore((prev) => ({
+      ...prev,
+      steps: { ...prev.steps, [step]: false }
+    }));
+  }, []);
 
-  const setIdentityStatus = React.useCallback(
-    async (status: IdentityStatus) => {
-      setIdentityStatusState(status);
-      await persist(state, status, consentAccepted);
-    },
-    [state, consentAccepted, persist]
-  );
+  const setIdentityStatus = React.useCallback(async (status: IdentityStatus) => {
+    setStore((prev) => ({
+      ...prev,
+      identityStatus: status
+    }));
+  }, []);
 
-  const setConsentAccepted = React.useCallback(
-    async (accepted: boolean) => {
-      setConsentAcceptedState(accepted);
-      await persist(state, identityStatus, accepted);
-    },
-    [state, identityStatus, persist]
-  );
+  const setConsentAccepted = React.useCallback(async (accepted: boolean) => {
+    setStore((prev) => ({
+      ...prev,
+      consentAccepted: accepted
+    }));
+  }, []);
 
   const resetKyc = React.useCallback(async () => {
-    const next = { personal: false, identity: false, employment: false, bank: false, nok: false };
-    setState(next);
-    setIdentityStatusState('UNVERIFIED');
-    setConsentAcceptedState(false);
-    await persist(next, 'UNVERIFIED', false);
-  }, [persist]);
+    setStore(defaultStore);
+  }, []);
 
   const checklist = orderedSteps.map((key) => ({
     key,
     label: stepLabels[key],
-    completed: state[key]
+    completed: store.steps[key]
   }));
   const completed = checklist.filter((item) => item.completed).length;
   const percentComplete = Math.round((completed / checklist.length) * 100);
@@ -133,9 +144,9 @@ export function KycProvider({ children }: { children: React.ReactNode }): React.
       markPending,
       resetKyc,
       isComplete: checklist.every((item) => item.completed),
-      identityStatus,
+      identityStatus: store.identityStatus,
       setIdentityStatus,
-      consentAccepted,
+      consentAccepted: store.consentAccepted,
       setConsentAccepted
     }),
     [
@@ -144,9 +155,9 @@ export function KycProvider({ children }: { children: React.ReactNode }): React.
       markComplete,
       markPending,
       resetKyc,
-      identityStatus,
+      store.identityStatus,
       setIdentityStatus,
-      consentAccepted,
+      store.consentAccepted,
       setConsentAccepted
     ]
   );

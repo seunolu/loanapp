@@ -17,6 +17,28 @@ type AuthContextValue = {
 };
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
+const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
+
+function normalizePhone(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const compact = trimmed.replace(/[\s()-]/g, '');
+  if (compact.startsWith('00')) {
+    return `+${compact.slice(2)}`;
+  }
+  return compact;
+}
+
+function toApiPhoneOrThrow(input: string): string {
+  const normalized = normalizePhone(input);
+  if (!PHONE_REGEX.test(normalized)) {
+    throw new Error('Enter phone in international format, e.g. +2348012345678.');
+  }
+  return normalized;
+}
 
 function isDevBypassEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' && process.env.EXPO_PUBLIC_BORROWER_DEV_BYPASS === 'true';
@@ -46,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       setToken('dev-access-token');
       return;
     }
-    const otp = await requestOtp(credentials.phone);
+    const otp = await requestOtp(toApiPhoneOrThrow(credentials.phone));
     setPendingOtpRef(otp.otpRef);
   }, []);
 
@@ -56,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       setToken('dev-access-token');
       return;
     }
-    const otp = await requestOtp(payload.phone);
+    const otp = await requestOtp(toApiPhoneOrThrow(payload.phone));
     setPendingOtpRef(otp.otpRef);
   }, []);
 
@@ -72,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         throw new Error('OTP session is missing. Request OTP again.');
       }
       const tokens = await verifyOtpApi({
-        phone: payload.phone,
+        phone: toApiPhoneOrThrow(payload.phone),
         otpRef,
         otp: payload.code
       });

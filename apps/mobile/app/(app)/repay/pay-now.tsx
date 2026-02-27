@@ -1,13 +1,7 @@
 import { useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Badge } from '../../../src/ui/Badge';
-import { Button } from '../../../src/ui/Button';
-import { Card } from '../../../src/ui/Card';
-import { Input } from '../../../src/ui/Input';
-import { Screen } from '../../../src/ui/Screen';
-import { SectionHeader } from '../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../src/ui/theme';
+import { Badge, Button, Card, Input, Screen, SectionHeader, colors, spacing, typography } from '../../../src/ui';
 import { initiateRepayment, setupMandate } from '../../../src/lib/api';
 
 export default function PayNowScreen() {
@@ -95,3 +89,5 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   error: { ...typography.caption, color: colors.danger }
 });
+
+

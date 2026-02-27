@@ -1,12 +1,8 @@
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { useAuth } from '../../src/providers/auth-provider';
-import { Button } from '../../src/ui/Button';
-import { Card } from '../../src/ui/Card';
-import { Input } from '../../src/ui/Input';
-import { Screen } from '../../src/ui/Screen';
-import { colors, typography } from '../../src/ui/theme';
+import { Button, Card, Input, Screen, ScreenFooter, ScreenHeader } from '../../src/ui';
 
 export default function OtpScreen() {
   const { verifyOtp } = useAuth();
@@ -28,17 +24,21 @@ export default function OtpScreen() {
   };
 
   return (
-    <Screen>
-      <Text style={styles.title}>Verify your number</Text>
+    <Screen
+      preset="fixed"
+      safeTop={false}
+      header={<ScreenHeader title="Verify your number" subtitle="Enter the OTP sent to your phone" showBack safeTop />}
+      footer={
+        <ScreenFooter>
+          <Button label="Verify" onPress={onVerify} loading={loading} fullWidth />
+        </ScreenFooter>
+      }
+    >
       <Card>
         <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <Input label="One-time code" value={code} onChangeText={setCode} keyboardType="number-pad" />
-        <Button label="Verify" onPress={onVerify} loading={loading} />
       </Card>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  title: { ...typography.title, color: colors.text }
-});

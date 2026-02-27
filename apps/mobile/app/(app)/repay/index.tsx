@@ -2,11 +2,7 @@ import { Link } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '../../../src/ui/Button';
-import { Card } from '../../../src/ui/Card';
-import { Screen } from '../../../src/ui/Screen';
-import { SectionHeader } from '../../../src/ui/SectionHeader';
-import { colors, typography } from '../../../src/ui/theme';
+import { Button, Card, Screen, SectionHeader, colors, typography } from '../../../src/ui';
 import { listMyMandates } from '../../../src/lib/api';
 
 export default function RepayIndexScreen() {
@@ -48,3 +44,5 @@ const styles = StyleSheet.create({
   metric: { ...typography.subtitle, color: colors.text },
   caption: { ...typography.body, color: colors.textMuted }
 });
+
+

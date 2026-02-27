@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from 'expo-router';
-import { colors } from '../../src/ui/theme';
+import { colors } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
 
 export default function AppLayout() {
@@ -34,3 +34,5 @@ export default function AppLayout() {
     </Tabs>
   );
 }
+
+

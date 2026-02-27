@@ -1,11 +1,7 @@
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
-import { Button } from '../../src/ui/Button';
-import { Card } from '../../src/ui/Card';
-import { Input } from '../../src/ui/Input';
-import { Screen } from '../../src/ui/Screen';
-import { colors, typography } from '../../src/ui/theme';
+import { Alert } from 'react-native';
+import { Button, Card, Input, Screen, ScreenFooter, ScreenHeader } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
 
 export default function SignupScreen() {
@@ -29,18 +25,22 @@ export default function SignupScreen() {
   };
 
   return (
-    <Screen>
-      <Text style={styles.title}>Create your account</Text>
+    <Screen
+      preset="fixed"
+      safeTop={false}
+      header={<ScreenHeader title="Create your account" showBack safeTop />}
+      footer={
+        <ScreenFooter>
+          <Button label="Continue" onPress={onContinue} loading={loading} fullWidth />
+        </ScreenFooter>
+      }
+    >
       <Card>
         <Input label="Full Name" value={fullName} onChangeText={setFullName} />
         <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <Button label="Continue" onPress={onContinue} loading={loading} />
       </Card>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  title: { ...typography.title, color: colors.text }
-});

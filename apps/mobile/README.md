@@ -44,8 +44,53 @@ Android-first borrower app built with Expo + expo-router.
 ## API base URL
 
 - Set `EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env` for physical device testing.
+- Set `EXPO_PUBLIC_DEFAULT_TENANT_SLUG` in `apps/mobile/.env` to the lender slug for this app build.
 - If unset, Android emulator defaults to `http://10.0.2.2:3000`.
 - For physical device, set LAN URL explicitly, e.g. `http://192.168.1.10:3000`.
+
+## White-label build matrix (EAS)
+
+Mobile supports profile-based white-label builds from:
+
+- `apps/mobile/branding.matrix.json`:
+  - app display name
+  - Expo slug/scheme
+  - Android package id
+  - iOS bundle id
+  - default tenant slug
+- `apps/mobile/eas.json`:
+  - build profiles (`preview-*`, `production-*`)
+  - per-profile env (`APP_BRAND`, `EXPO_PUBLIC_DEFAULT_TENANT_SLUG`)
+
+Build examples:
+
+- Demo Android release:
+  - `pnpm -C apps/mobile eas:build:android:demo`
+- Acme Android release:
+  - `pnpm -C apps/mobile eas:build:android:acme`
+- Custom lender Android release:
+  - `pnpm -C apps/mobile eas:build:android:custom`
+- Demo iOS release:
+  - `pnpm -C apps/mobile eas:build:ios:demo`
+- Acme iOS release:
+  - `pnpm -C apps/mobile eas:build:ios:acme`
+- Custom lender iOS release:
+  - `pnpm -C apps/mobile eas:build:ios:custom`
+
+To add a new lender:
+
+1. Add a new entry in `branding.matrix.json`.
+2. Add matching `preview-*` and `production-*` profiles in `eas.json`.
+3. Build with the new profile.
+
+For one-off production identifiers without code edits, use `production-custom` profile in `eas.json` and set:
+
+- `APP_NAME`
+- `APP_SLUG`
+- `APP_SCHEME`
+- `APP_ANDROID_PACKAGE`
+- `APP_IOS_BUNDLE_ID`
+- `EXPO_PUBLIC_DEFAULT_TENANT_SLUG`
 
 ## Windows monorepo Metro note
 

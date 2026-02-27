@@ -4,18 +4,21 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { apiFetch } from '../src/lib/api';
-import { setTenantSlug } from '../src/lib/storage';
+import { clearLocalAppState, setTenantSlug } from '../src/lib/storage';
+import { useAuth } from '../src/providers/auth-provider';
 import { resolveTenant } from '../src/lib/tenant-sdk';
 import { DEFAULT_API_BASE_URL, useTenant } from '../src/tenant/tenant-context';
 
 const API_BASE_OVERRIDE = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 
 export default function TenantScreen() {
-  const { apiBaseUrl, setTenant, tenantId, tenantSlug } = useTenant();
+  const { apiBaseUrl, setTenant, clearTenant, tenantId, tenantSlug } = useTenant();
+  const { logout } = useAuth();
   const [slug, setSlug] = useState(tenantSlug);
   const [lenderTitleInput, setLenderTitleInput] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isTestingHealth, setIsTestingHealth] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const effectiveApiBaseUrl = API_BASE_OVERRIDE || apiBaseUrl || DEFAULT_API_BASE_URL;
 
@@ -77,6 +80,33 @@ export default function TenantScreen() {
     }
   };
 
+  const onResetLocalState = () => {
+    Alert.alert('Reset local app state?', 'This clears local auth, tenant, and device info on this emulator only.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsResetting(true);
+            await logout();
+            await clearLocalAppState();
+            clearTenant();
+            setSlug('');
+            setLenderTitleInput('');
+            setError(null);
+            Alert.alert('Done', 'Local app state was cleared.');
+          } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Failed to reset local app state.';
+            Alert.alert('Reset failed', message);
+          } finally {
+            setIsResetting(false);
+          }
+        }
+      }
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -105,6 +135,10 @@ export default function TenantScreen() {
 
           <Pressable disabled={resolveMutation.isPending} onPress={onContinue} style={styles.button}>
             {resolveMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue</Text>}
+          </Pressable>
+
+          <Pressable disabled={isResetting} onPress={onResetLocalState} style={styles.resetButton}>
+            {isResetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Reset Local App State</Text>}
           </Pressable>
 
           <Text style={styles.hint}>API base: {effectiveApiBaseUrl}</Text>
@@ -140,6 +174,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   buttonText: { color: '#fff', fontWeight: '600' },
+  resetButton: {
+    width: '100%',
+    backgroundColor: '#b91c1c',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
   secondaryButton: {
     width: '100%',
     borderColor: '#0b1720',

@@ -2,11 +2,7 @@ import { router } from 'expo-router';
 import * as React from 'react';
 import { Text } from 'react-native';
 import { useKyc } from '../../../../src/providers/kyc-provider';
-import { Button } from '../../../../src/ui/Button';
-import { Card } from '../../../../src/ui/Card';
-import { Input } from '../../../../src/ui/Input';
-import { Screen } from '../../../../src/ui/Screen';
-import { SectionHeader } from '../../../../src/ui/SectionHeader';
+import { Button, Card, Input, Screen, SectionHeader } from '../../../../src/ui';
 
 export default function KycPersonalScreen() {
   const { markComplete } = useKyc();
@@ -31,3 +27,5 @@ export default function KycPersonalScreen() {
     </Screen>
   );
 }
+
+

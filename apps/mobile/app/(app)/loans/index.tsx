@@ -1,12 +1,7 @@
 import { Link } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useKyc } from '../../../src/providers/kyc-provider';
-import { Badge } from '../../../src/ui/Badge';
-import { Button } from '../../../src/ui/Button';
-import { Card } from '../../../src/ui/Card';
-import { Screen } from '../../../src/ui/Screen';
-import { SectionHeader } from '../../../src/ui/SectionHeader';
-import { colors, spacing, typography } from '../../../src/ui/theme';
+import { Badge, Button, Card, Screen, SectionHeader, colors, spacing, typography } from '../../../src/ui';
 
 export default function LoansIndexScreen() {
   const { isComplete } = useKyc();
@@ -48,3 +43,5 @@ const styles = StyleSheet.create({
   warningCard: { borderColor: '#F2D29A', backgroundColor: '#FFF9ED' },
   warningTitle: { ...typography.subtitle, color: colors.warning }
 });
+
+

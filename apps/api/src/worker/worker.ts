@@ -354,6 +354,7 @@ async function bootstrap(): Promise<void> {
         attempts: job.attempts
       });
       const requestId = trace.requestId;
+      const correlationId = trace.correlationId;
       const tenantId = trace.tenantId;
       const jobLogger = withRequestId(logger, requestId);
 
@@ -372,6 +373,7 @@ async function bootstrap(): Promise<void> {
               jobId: job.id,
               jobName: job.type,
               tenantId,
+              correlationId,
               loanId: trace.loanId,
               startedAt: new Date(startedAt).toISOString(),
               attempt: trace.attempt,
@@ -400,6 +402,7 @@ async function bootstrap(): Promise<void> {
               jobId: job.id,
               jobName: job.type,
               tenantId,
+              correlationId,
               loanId: trace.loanId,
               startedAt: new Date(startedAt).toISOString(),
               finishedAt: new Date().toISOString(),
@@ -427,6 +430,7 @@ async function bootstrap(): Promise<void> {
               jobId: job.id,
               jobName: job.type,
               tenantId,
+              correlationId,
               loanId: trace.loanId,
               startedAt: new Date(startedAt).toISOString(),
               finishedAt: new Date().toISOString(),

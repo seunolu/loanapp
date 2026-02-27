@@ -1,5 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Job, JobStatus, JobType, Prisma } from '@prisma/client';
+import type { Env } from '../config/env.schema';
 import { PrismaService } from '../database/prisma.service';
 import { PromMetricsService } from '../observability/prom-metrics.service';
 
@@ -50,6 +52,7 @@ export class JobQueueService {
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly configService: ConfigService<Env, true>,
     @Optional() @Inject(PromMetricsService) private readonly promMetricsService?: PromMetricsService
   ) {}
 
@@ -74,8 +77,8 @@ export class JobQueueService {
           dedupeKey: params.dedupeKey ?? null,
           payload: this.buildPayload(params) as Prisma.InputJsonValue,
           runAt: params.runAt ?? new Date(),
-          maxAttempts: params.maxAttempts ?? 10,
-          backoffMs: params.backoffMs ?? 5000
+          maxAttempts: params.maxAttempts ?? this.configService.get('JOB_MAX_ATTEMPTS', { infer: true }),
+          backoffMs: params.backoffMs ?? this.configService.get('JOB_BACKOFF_MS', { infer: true })
         }
       });
       this.promMetricsService?.incrementJobsEnqueued(this.queueName, params.type);
@@ -197,6 +200,7 @@ export class JobQueueService {
       this.promMetricsService?.incrementJobsFailed(this.queueName, job.type);
 
       if (exhausted) {
+        const dlqEnabled = this.configService.get('JOB_DLQ_ENABLED', { infer: true });
         await tx.job.update({
           where: { id: job.id },
           data: {
@@ -208,19 +212,44 @@ export class JobQueueService {
             lockedBy: null
           }
         });
-        await (tx as any).jobDlq.create({
+        if (dlqEnabled) {
+          await (tx as any).jobDlq.create({
+            data: {
+              tenantId: job.tenantId,
+              jobId: job.id,
+              type: job.type,
+              payloadJson: job.payload as Prisma.InputJsonValue,
+              attempts: nextAttempts,
+              lastError: errorMessage.slice(0, 2000),
+              failedAt: new Date()
+            }
+          });
+        }
+        await tx.auditLog.create({
           data: {
+            event: 'JOB_DEAD_LETTER',
+            action: 'JOB_DEAD_LETTER',
             tenantId: job.tenantId,
-            jobId: job.id,
-            type: job.type,
-            payloadJson: job.payload as Prisma.InputJsonValue,
-            attempts: nextAttempts,
-            lastError: errorMessage.slice(0, 2000),
-            failedAt: new Date()
-          }
+            requestId: this.getPayloadString(job.payload, 'requestId'),
+            actorType: 'SYSTEM',
+            actorId: null,
+            actorRole: null,
+            entity: 'JOB',
+            entityType: 'JOB',
+            entityId: job.id,
+            status: 'FAIL',
+            summary: 'Queue job exhausted retries',
+            metadata: {
+              type: job.type,
+              attempts: nextAttempts,
+              maxAttempts: job.maxAttempts,
+              correlationId: this.getPayloadString(job.payload, 'correlationId'),
+              dlqEnabled
+            } as Prisma.InputJsonValue
+          } as any
         });
         this.logger.error(
-          `job_dlq jobId=${job.id} tenantId=${job.tenantId} type=${job.type} attempts=${nextAttempts} error=${errorMessage.slice(0, 200)}`
+          `job_dead_letter jobId=${job.id} tenantId=${job.tenantId} type=${job.type} attempts=${nextAttempts} correlationId=${this.getPayloadString(job.payload, 'correlationId') ?? 'unknown'} error=${errorMessage.slice(0, 200)}`
         );
         return;
       }
@@ -289,8 +318,17 @@ export class JobQueueService {
     return {
       ...params.payload,
       requestId: params.requestId ?? null,
+      correlationId: params.requestId ?? params.dedupeKey ?? null,
       tenantId: params.tenantId,
       actor: params.actor ?? null
     };
+  }
+
+  private getPayloadString(payload: unknown, key: string): string | null {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return null;
+    }
+    const value = (payload as Record<string, unknown>)[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
   }
 }

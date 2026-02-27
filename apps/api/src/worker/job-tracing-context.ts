@@ -16,6 +16,10 @@ export function resolveJobTracingContext(input: {
 }) {
   const payload = asObject(input.payload);
   const requestId = typeof payload.requestId === 'string' && payload.requestId.trim() ? payload.requestId.trim() : randomUUID();
+  const correlationId =
+    typeof payload.correlationId === 'string' && payload.correlationId.trim()
+      ? payload.correlationId.trim()
+      : requestId;
   const tenantId =
     typeof payload.tenantId === 'string' && payload.tenantId.trim()
       ? payload.tenantId.trim()
@@ -29,6 +33,7 @@ export function resolveJobTracingContext(input: {
 
   return {
     requestId,
+    correlationId,
     tenantId,
     loanId,
     jobId: input.jobId,

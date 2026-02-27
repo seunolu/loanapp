@@ -1,13 +1,8 @@
 import { getOrCreateDeviceId } from './device';
 import Constants from 'expo-constants';
-import {
-  clearSessionTokens,
-  getSessionTokens,
-  getTenantSlug,
-  setSessionTokens,
-  setTenantSlug,
-  type SessionTokens
-} from './storage';
+import { authRequest } from '../auth/auth-client';
+import { clearTokens, getTokens, setTokens } from '../auth/token-storage';
+import { getTenantSlug, setTenantSlug } from './storage';
 import { getApiBaseUrl } from './apiBaseUrl';
 import type { TenantSnapshot } from '../tenant/tenant-context';
 
@@ -45,15 +40,6 @@ export async function fetchJson<T>(
   }
   return (await response.json()) as T;
 }
-
-type ApiErrorPayload = {
-  error?: {
-    code?: string;
-    message?: string;
-    details?: unknown;
-    requestId?: string;
-  };
-};
 
 export type TenantPublicConfig = {
   lenderId: string;
@@ -224,105 +210,14 @@ type RequestOptions = {
   retryOnUnauthorized?: boolean;
 };
 
-let refreshPromise: Promise<SessionTokens | null> | null = null;
-
-function requestId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-}
-
-async function parseJson<T>(response: Response): Promise<T | null> {
-  return (await response.json().catch(() => null)) as T | null;
-}
-
-async function refreshTokensSingleFlight(): Promise<SessionTokens | null> {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const tokens = await getSessionTokens();
-      if (!tokens?.refreshToken) {
-        return null;
-      }
-
-      const refreshed = await fetch(`${API_V1}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Id': requestId(),
-          'X-Device-Id': await getOrCreateDeviceId()
-        },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken })
-      });
-
-      if (!refreshed.ok) {
-        await clearSessionTokens();
-        return null;
-      }
-
-      const payload = await parseJson<{ accessToken?: string; refreshToken?: string }>(refreshed);
-      if (!payload?.accessToken || !payload.refreshToken) {
-        await clearSessionTokens();
-        return null;
-      }
-
-      const nextTokens = { accessToken: payload.accessToken, refreshToken: payload.refreshToken };
-      await setSessionTokens(nextTokens);
-      return nextTokens;
-    })().finally(() => {
-      refreshPromise = null;
-    });
-  }
-
-  return refreshPromise;
-}
-
 async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const method = options.method ?? 'GET';
-  const requiresAuth = options.requiresAuth ?? false;
-  const retryOnUnauthorized = options.retryOnUnauthorized ?? true;
-  const deviceId = await getOrCreateDeviceId();
-
-  const headers = new Headers(options.headers ?? {});
-  headers.set('X-Request-Id', requestId());
-  headers.set('X-Device-Id', deviceId);
-
-  if (options.body !== undefined) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  let accessToken = '';
-  if (requiresAuth) {
-    const tokens = await getSessionTokens();
-    accessToken = tokens?.accessToken ?? '';
-    if (!accessToken) {
-      throw new ApiError('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
-
-  const response = await fetch(`${API_V1}${path}`, {
-    method,
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+  return authRequest<T>(path, {
+    method: options.method,
+    body: options.body,
+    headers: options.headers,
+    requiresAuth: options.requiresAuth ?? false,
+    retryOnUnauthorized: options.retryOnUnauthorized ?? true
   });
-
-  if (response.status === 401 && requiresAuth && retryOnUnauthorized) {
-    const refreshed = await refreshTokensSingleFlight();
-    if (!refreshed?.accessToken) {
-      throw new ApiError('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    return apiRequest<T>(path, { ...options, retryOnUnauthorized: false });
-  }
-
-  if (!response.ok) {
-    const payload = await parseJson<ApiErrorPayload>(response);
-    throw new ApiError(payload?.error?.message ?? `Request failed (${response.status})`, response.status, payload?.error?.code);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
 }
 
 export async function loadTenantConfig(slug: string): Promise<TenantPublicConfig> {
@@ -381,7 +276,7 @@ export async function verifyOtp(input: {
     }
   });
 
-  await setSessionTokens({
+  await setTokens({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken
   });
@@ -389,7 +284,7 @@ export async function verifyOtp(input: {
 }
 
 export async function logout(): Promise<void> {
-  const tokens = await getSessionTokens();
+  const tokens = await getTokens();
   if (tokens?.refreshToken) {
     await apiRequest('/auth/logout', {
       method: 'POST',
@@ -397,7 +292,7 @@ export async function logout(): Promise<void> {
       requiresAuth: false
     }).catch(() => undefined);
   }
-  await clearSessionTokens();
+  await clearTokens();
 }
 
 export async function getMe(): Promise<BorrowerMe> {
@@ -484,7 +379,7 @@ export async function listMyMandates(): Promise<BorrowerMandate[]> {
 }
 
 export async function hasActiveSession(): Promise<boolean> {
-  const tokens = await getSessionTokens();
+  const tokens = await getTokens();
   return Boolean(tokens?.accessToken && tokens.refreshToken);
 }
 

@@ -3,9 +3,9 @@ import { colors } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
 
 export default function AppLayout() {
-  const { isAuthed, isLoading } = useAuth();
-  if (!isLoading && !isAuthed) {
-    return <Redirect href={'/welcome' as any} />;
+  const { status } = useAuth();
+  if (status === 'unauthenticated') {
+    return <Redirect href={'/(auth)/login' as any} />;
   }
 
   return (
@@ -34,5 +34,4 @@ export default function AppLayout() {
     </Tabs>
   );
 }
-
 

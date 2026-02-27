@@ -1,4 +1,6 @@
 import { getApiBaseUrlCandidates } from './apiBaseUrl';
+import { NetworkError } from '../errors/AppError';
+import { request } from './http/client';
 
 function normalizePath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
@@ -14,32 +16,15 @@ export async function apiGet<T>(path: string): Promise<T> {
     const url = `${baseUrl}${normalizedPath}`;
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
+      return await request<T>('GET', url, {
         headers: {
           Accept: 'application/json'
         }
       });
-
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        throw new Error(`GET ${url} failed with ${response.status} ${response.statusText}: ${responseText}`);
-      }
-
-      if (!responseText) {
-        return undefined as T;
-      }
-
-      try {
-        return JSON.parse(responseText) as T;
-      } catch {
-        throw new Error(`GET ${url} returned non-JSON response: ${responseText}`);
-      }
     } catch (error) {
       lastError = error;
       const hasFallback = index < candidates.length - 1;
-      const isNetworkError = error instanceof TypeError;
+      const isNetworkError = error instanceof NetworkError;
 
       if (hasFallback && isNetworkError) {
         continue;

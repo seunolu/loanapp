@@ -18,6 +18,8 @@ type AuthContextValue = {
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
+let hydratedToken: string | null | undefined;
+let hydrateAuthPromise: Promise<string | null> | null = null;
 
 function normalizePhone(input: string): string {
   const trimmed = input.trim();
@@ -44,27 +46,56 @@ function isDevBypassEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' && process.env.EXPO_PUBLIC_BORROWER_DEV_BYPASS === 'true';
 }
 
+async function resolveHydratedAuthToken(): Promise<string | null> {
+  const session = await getSessionTokens();
+  if (session?.accessToken) {
+    hydratedToken = session.accessToken;
+    return hydratedToken;
+  }
+
+  if (isDevBypassEnabled()) {
+    await setSessionTokens({ accessToken: 'dev-access-token', refreshToken: 'dev-refresh-token' });
+    hydratedToken = 'dev-access-token';
+    return hydratedToken;
+  }
+
+  hydratedToken = null;
+  return null;
+}
+
+export async function hydrateAuth(): Promise<void> {
+  if (!hydrateAuthPromise) {
+    hydrateAuthPromise = resolveHydratedAuthToken().finally(() => {
+      hydrateAuthPromise = null;
+    });
+  }
+  await hydrateAuthPromise;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [token, setToken] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(hydratedToken === undefined);
+  const [token, setToken] = React.useState<string | null>(hydratedToken ?? null);
   const [pendingOtpRef, setPendingOtpRef] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    let active = true;
     (async () => {
-      const session = await getSessionTokens();
-      if (session?.accessToken) {
-        setToken(session.accessToken);
-      } else if (isDevBypassEnabled()) {
-        await setSessionTokens({ accessToken: 'dev-access-token', refreshToken: 'dev-refresh-token' });
-        setToken('dev-access-token');
+      await hydrateAuth();
+      if (!active) {
+        return;
       }
+      setToken(hydratedToken ?? null);
       setIsLoading(false);
     })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = React.useCallback(async (credentials: LoginInput) => {
     if (isDevBypassEnabled()) {
       await setSessionTokens({ accessToken: 'dev-access-token', refreshToken: 'dev-refresh-token' });
+      hydratedToken = 'dev-access-token';
       setToken('dev-access-token');
       return;
     }
@@ -75,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const signup = React.useCallback(async (payload: SignupInput) => {
     if (isDevBypassEnabled()) {
       await setSessionTokens({ accessToken: 'dev-access-token', refreshToken: 'dev-refresh-token' });
+      hydratedToken = 'dev-access-token';
       setToken('dev-access-token');
       return;
     }
@@ -86,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     async (payload: OtpInput) => {
       if (isDevBypassEnabled()) {
         await setSessionTokens({ accessToken: 'dev-access-token', refreshToken: 'dev-refresh-token' });
+        hydratedToken = 'dev-access-token';
         setToken('dev-access-token');
         return;
       }
@@ -99,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         otp: payload.code
       });
       await setSessionTokens(tokens);
+      hydratedToken = tokens.accessToken;
       setToken(tokens.accessToken);
       setPendingOtpRef(null);
     },
@@ -107,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
   const logout = React.useCallback(async () => {
     await clearSessionTokens();
+    hydratedToken = null;
     setToken(null);
   }, []);
 

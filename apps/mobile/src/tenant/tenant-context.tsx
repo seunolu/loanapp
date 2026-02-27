@@ -8,6 +8,8 @@ const DEFAULT_TENANT_SLUG =
   String((Constants.expoConfig?.extra as { defaultTenantSlug?: string } | undefined)?.defaultTenantSlug ?? '')
     .trim()
     .toLowerCase();
+let hydratedTenantSlug: string | null | undefined;
+let hydrateTenantPromise: Promise<string | null> | null = null;
 
 export type TenantSnapshot = {
   tenantSlug: string;
@@ -39,29 +41,55 @@ const initialState: TenantSnapshot = {
   resolved: Boolean(DEFAULT_TENANT_SLUG)
 };
 
+async function resolveHydratedTenantSlug(): Promise<string | null> {
+  const storedSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
+  const slugToUse = storedSlug || DEFAULT_TENANT_SLUG;
+  if (!slugToUse) {
+    hydratedTenantSlug = null;
+    return null;
+  }
+  if (!storedSlug) {
+    await setTenantSlug(slugToUse);
+  }
+  hydratedTenantSlug = slugToUse;
+  return slugToUse;
+}
+
+export async function hydrateTenant(): Promise<void> {
+  if (!hydrateTenantPromise) {
+    hydrateTenantPromise = resolveHydratedTenantSlug().finally(() => {
+      hydrateTenantPromise = null;
+    });
+  }
+  await hydrateTenantPromise;
+}
+
 const TenantContext = createContext<TenantContextValue | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<TenantSnapshot>(initialState);
+  const [state, setState] = useState<TenantSnapshot>(() => {
+    if (hydratedTenantSlug === undefined) {
+      return initialState;
+    }
+    return {
+      ...initialState,
+      tenantSlug: hydratedTenantSlug ?? '',
+      resolved: Boolean(hydratedTenantSlug)
+    };
+  });
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const storedSlug = (await getTenantSlug())?.trim().toLowerCase() ?? '';
-      const slugToUse = storedSlug || DEFAULT_TENANT_SLUG;
-      if (!slugToUse) {
-        return;
-      }
-      if (!storedSlug) {
-        await setTenantSlug(slugToUse);
-      }
+      await hydrateTenant();
       if (!active) {
         return;
       }
+      const slugToUse = hydratedTenantSlug ?? '';
       setState((prev) => ({
         ...prev,
         tenantSlug: slugToUse,
-        resolved: true
+        resolved: Boolean(slugToUse)
       }));
     })();
     return () => {

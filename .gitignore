@@ -9,3 +9,5 @@ coverage
 # Next.js / TS build outputs
 apps/*/.next/
 **/*.tsbuildinfo
+_tmp_*
+_tmp_*/

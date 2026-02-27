@@ -26,3 +26,6 @@ pnpm-install-debug.ndjson
 
 # OS
 .DS_Store
+
+# temporary files
+_tmp_*

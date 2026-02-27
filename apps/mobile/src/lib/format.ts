@@ -7,3 +7,10 @@ export function formatNairaFromKobo(kobo: number): string {
   })}`;
 }
 
+export function formatMoneyNGN(value: number, unit: 'kobo' | 'naira' = 'kobo'): string {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+  if (unit === 'naira') {
+    return `\u20a6${Math.round(safeValue).toLocaleString('en-NG')}`;
+  }
+  return formatNairaFromKobo(safeValue);
+}

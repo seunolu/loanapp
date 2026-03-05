@@ -87,7 +87,8 @@ export class IdentityService {
       });
     }
 
-    const bvnHash = createHash('sha256').update(input.bvn).digest('hex');
+    const normalizedBvn = input.bvn.trim();
+    const bvnHash = createHash('sha256').update(normalizedBvn).digest('hex');
 
     let status: 'PENDING' | 'VERIFIED' | 'FAILED' | 'MANUAL_REVIEW' = 'FAILED';
     let verifiedName: string | null = null;
@@ -95,34 +96,46 @@ export class IdentityService {
     let similarity = 0;
     let riskScore = 100;
     let flags: string[] = ['PROVIDER_ERROR'];
-    const provider = 'NIBSS';
+    let provider = 'NIBSS';
+    const bvnDevMode = this.configService.get('BVN_DEV_MODE', { infer: true });
+    const bvnDevFixedPassBvn = this.configService.get('BVN_DEV_FIXED_PASS_BVN', { infer: true });
 
     try {
-      const providerResult = await this.bvnProvider.verify(input.bvn);
-      verifiedName = providerResult.fullName;
-      verifiedDob = new Date(providerResult.dob);
-
-      const borrowerName = `${borrower.profile?.firstName ?? ''} ${borrower.profile?.lastName ?? ''}`.trim();
-      const nameMatch = compareNames(borrowerName, providerResult.fullName);
-      similarity = nameMatch.similarity;
-
-      const risk = await this.identityRiskService.evaluate({
-        lenderId: principal.lenderId,
-        userId: principal.borrowerId,
-        bvnHash,
-        nameSimilarity: similarity,
-        borrowerDob: borrower.profile?.dateOfBirth ?? null,
-        verifiedDob
-      });
-      riskScore = risk.riskScore;
-      flags = risk.flags;
-
-      if (similarity >= 0.85 && flags.length === 0) {
+      if (bvnDevMode && bvnDevFixedPassBvn && normalizedBvn === bvnDevFixedPassBvn) {
+        provider = 'DEV_STUB';
+        verifiedName = `${borrower.profile?.firstName ?? ''} ${borrower.profile?.lastName ?? ''}`.trim() || 'Dev Borrower';
+        verifiedDob = borrower.profile?.dateOfBirth ?? new Date('1990-01-01T00:00:00.000Z');
+        similarity = 1;
+        riskScore = 0;
+        flags = [];
         status = 'VERIFIED';
-      } else if (similarity >= 0.65) {
-        status = 'MANUAL_REVIEW';
       } else {
-        status = 'FAILED';
+        const providerResult = await this.bvnProvider.verify(normalizedBvn);
+        verifiedName = providerResult.fullName;
+        verifiedDob = new Date(providerResult.dob);
+
+        const borrowerName = `${borrower.profile?.firstName ?? ''} ${borrower.profile?.lastName ?? ''}`.trim();
+        const nameMatch = compareNames(borrowerName, providerResult.fullName);
+        similarity = nameMatch.similarity;
+
+        const risk = await this.identityRiskService.evaluate({
+          lenderId: principal.lenderId,
+          userId: principal.borrowerId,
+          bvnHash,
+          nameSimilarity: similarity,
+          borrowerDob: borrower.profile?.dateOfBirth ?? null,
+          verifiedDob
+        });
+        riskScore = risk.riskScore;
+        flags = risk.flags;
+
+        if (similarity >= 0.85 && flags.length === 0) {
+          status = 'VERIFIED';
+        } else if (similarity >= 0.65) {
+          status = 'MANUAL_REVIEW';
+        } else {
+          status = 'FAILED';
+        }
       }
     } catch {
       status = 'FAILED';

@@ -83,6 +83,7 @@ export type TenantPublicConfig = {
 export type BorrowerMe = {
   id: string;
   phone: string;
+  fullName?: string | null;
   status: 'ACTIVE' | 'SUSPENDED';
   profile: null | {
     firstName: string;
@@ -337,6 +338,97 @@ export async function logout(): Promise<void> {
 
 export async function getMe(): Promise<BorrowerMe> {
   return apiRequest<BorrowerMe>('/me', { requiresAuth: true });
+}
+
+export type UpdateBorrowerProfileInput = {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender?: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+};
+
+export async function updateMyProfile(input: UpdateBorrowerProfileInput): Promise<BorrowerMe> {
+  return apiRequest<BorrowerMe>('/me/profile', {
+    method: 'PUT',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export type BorrowerBankAccount = {
+  id: string;
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  isDefault: boolean;
+  createdAt: string;
+};
+
+export type UpsertBorrowerBankAccountInput = {
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  isDefault?: boolean;
+};
+
+export async function upsertMyBankAccount(input: UpsertBorrowerBankAccountInput): Promise<BorrowerBankAccount> {
+  return apiRequest<BorrowerBankAccount>('/me/bank-accounts', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export type VerifyBankAccountInput = {
+  bankCode: string;
+  accountNumber: string;
+};
+
+export type VerifyBankAccountResponse = {
+  accountName?: string;
+  resolvedName?: string;
+};
+
+export async function verifyMyBankAccount(input: VerifyBankAccountInput): Promise<VerifyBankAccountResponse> {
+  return apiRequest<VerifyBankAccountResponse>('/me/bank-accounts/verify', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
+}
+
+export type LoanProductItem = {
+  id: string;
+  name: string;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  currency: string;
+  minPrincipal: number;
+  maxPrincipal: number;
+  minTenorDays: number;
+  maxTenorDays: number;
+};
+
+export async function listLoanProducts(status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' = 'ACTIVE'): Promise<{ items: LoanProductItem[] }> {
+  return apiRequest<{ items: LoanProductItem[] }>(`/loan-products?status=${encodeURIComponent(status)}`, {
+    method: 'GET',
+    requiresAuth: true
+  });
+}
+
+export async function createBorrowerLoanApplication(input: {
+  amountRequested: number;
+  tenorDays: number;
+}): Promise<{ applicationId: string; status: string }> {
+  return apiRequest<{ applicationId: string; status: string }>('/loans/applications', {
+    method: 'POST',
+    body: input,
+    requiresAuth: true
+  });
 }
 
 export async function recordIdentityConsent(type: 'KYC_CONSENT' | 'DATA_PROCESSING'): Promise<{

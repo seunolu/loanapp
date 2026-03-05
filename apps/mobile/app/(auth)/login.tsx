@@ -1,20 +1,27 @@
 import { Link, router } from 'expo-router';
 import * as React from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import { Button, Card, Input, Screen, ScreenFooter, ScreenHeader, colors, spacing, typography } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
+import { normalizePhoneE164, toNigeriaLocalPhoneInput } from '../../src/lib/phone';
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const [phone, setPhone] = React.useState('');
+  const [phoneLocal, setPhoneLocal] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async () => {
+    const normalizedPhone = normalizePhoneE164(phoneLocal);
+    if (!normalizedPhone || !/^\+234\d{10}$/.test(normalizedPhone)) {
+      Alert.alert('Invalid phone', 'Enter a valid 10-digit Nigerian phone number.');
+      return;
+    }
+
     try {
       setLoading(true);
-      await login({ phone, password });
-      router.replace('/home' as any);
+      await login({ phone: normalizedPhone, password });
+      router.push(`/otp?phone=${encodeURIComponent(normalizedPhone)}` as any);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to log in. Please try again.';
       Alert.alert('Login failed', message);
@@ -40,7 +47,14 @@ export default function LoginScreen() {
       }
     >
       <Card>
-        <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <Input
+          label="Phone Number"
+          value={phoneLocal}
+          onChangeText={(value) => setPhoneLocal(toNigeriaLocalPhoneInput(value))}
+          keyboardType="phone-pad"
+          placeholder="8012345678"
+          leftAccessory={<Text style={styles.prefix}>+234</Text>}
+        />
         <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry />
         <Button label="Log In" onPress={onSubmit} loading={loading} />
       </Card>
@@ -50,5 +64,6 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   footer: { gap: spacing.xs },
-  link: { ...typography.body, color: colors.info }
+  link: { ...typography.body, color: colors.info },
+  prefix: { fontWeight: '700' }
 });

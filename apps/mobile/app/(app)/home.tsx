@@ -35,8 +35,9 @@ export default function HomeScreen() {
 
   const me = meQuery.data;
   const recentLoans = recentLoansQuery.data ?? [];
-  const firstName = me?.profile?.firstName?.trim() || 'there';
-  const avatarText = firstName.slice(0, 1).toUpperCase() || brand.appName.slice(0, 1).toUpperCase();
+  const firstName = me?.profile?.firstName?.trim() ?? '';
+  const greeting = firstName ? `Hi, ${firstName}` : 'Hi there';
+  const avatarText = (firstName || brand.appName).slice(0, 1).toUpperCase();
   const availableCredit = creditQuery.data?.availableCreditKobo ?? 0;
   const creditCtaLabel = isKycVerified ? 'Apply for Loan' : 'Complete KYC';
   const creditCtaRoute = isKycVerified ? '/loans/apply/offers' : '/profile/kyc';
@@ -59,7 +60,7 @@ export default function HomeScreen() {
             <Text style={styles.brandBadgeText}>{brand.appName.slice(0, 1).toUpperCase()}</Text>
           </View>
           <View>
-            <Text style={styles.headerTitle}>Hi, {firstName}</Text>
+            <Text style={styles.headerTitle}>{greeting}</Text>
             <Text style={styles.headerSubtitle}>Let&apos;s get you funded today</Text>
           </View>
         </View>

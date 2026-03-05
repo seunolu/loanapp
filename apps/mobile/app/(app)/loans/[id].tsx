@@ -1,4 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useLoanDetail } from '../../../src/features/loan-history/loanDetail.queries';
 import { formatMoneyNGN } from '../../../src/lib/format';
@@ -13,9 +15,19 @@ import { Badge, Button, Card, EmptyState, ErrorState, Screen, Skeleton, Text, To
 
 export default function LoanStatusScreen() {
   useSensitiveScreenCaptureGuard('loan-detail');
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const loanId = normalizeId(params.id);
   const loanQuery = useLoanDetail(loanId);
+  const isNotFound = loanQuery.isError && getErrorStatus(loanQuery.error) === 404;
+
+  React.useEffect(() => {
+    if (!isNotFound) {
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: ['loan-history'] });
+    void queryClient.invalidateQueries({ queryKey: ['loans', 'recent'] });
+  }, [isNotFound, queryClient]);
 
   if (!loanId) {
     return (
@@ -31,11 +43,16 @@ export default function LoanStatusScreen() {
   }
 
   if (loanQuery.isError) {
-    if (getErrorStatus(loanQuery.error) === 404) {
+    if (isNotFound) {
       return (
         <Screen>
           <TopNav title="Loan details" />
-          <EmptyState title="Loan not found" body="This loan does not exist or is no longer available." />
+          <Card style={styles.notFoundCard}>
+            <Text style={styles.sectionTitle}>This loan is no longer available</Text>
+            <Text style={styles.bodyText}>The loan may have been removed or moved. Your loan list has been refreshed.</Text>
+            <Button label="Back to loans" onPress={() => router.replace('/loans' as never)} />
+            <Button label="Refresh" variant="secondary" onPress={() => void loanQuery.refetch()} />
+          </Card>
         </Screen>
       );
     }
@@ -256,6 +273,9 @@ const styles = StyleSheet.create({
   timelineTexts: {
     flex: 1
   },
+  notFoundCard: {
+    gap: spacing.sm
+  },
   timelineTitle: {
     ...typography.body,
     color: colors.text
@@ -265,4 +285,3 @@ const styles = StyleSheet.create({
     color: colors.textMuted
   }
 });
-

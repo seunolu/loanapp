@@ -14,17 +14,23 @@ type PressableProps = RNPressableProps & {
   style?: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
 };
 
-export function Pressable({
-  activeOpacity = 0.9,
-  disabledOpacity = 0.55,
-  style,
-  disabled,
-  ...rest
-}: PressableProps): React.JSX.Element {
+type PressableRef = React.ComponentRef<typeof RNPressable>;
+
+const Pressable = React.forwardRef<PressableRef, PressableProps>(function Pressable(
+  {
+    activeOpacity = 0.9,
+    disabledOpacity = 0.55,
+    style,
+    disabled,
+    ...rest
+  },
+  ref
+): React.JSX.Element {
   useTheme();
 
   return (
     <RNPressable
+      ref={ref}
       disabled={disabled}
       {...rest}
       style={(state) => {
@@ -39,4 +45,9 @@ export function Pressable({
       }}
     />
   );
-}
+});
+
+Pressable.displayName = 'Pressable';
+
+export { Pressable };
+export type { PressableProps, PressableRef };

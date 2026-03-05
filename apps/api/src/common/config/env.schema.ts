@@ -125,6 +125,11 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   BVN_PROVIDER: z.enum(['NIBSS']).default('NIBSS'),
+  BVN_DEV_MODE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  BVN_DEV_FIXED_PASS_BVN: z.string().regex(/^\d{11}$/).optional(),
   BVN_PROVIDER_BASE_URL: z.string().url().optional(),
   BVN_PROVIDER_API_KEY: z.string().min(8).optional(),
   BVN_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(10000),

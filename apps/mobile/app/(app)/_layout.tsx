@@ -1,12 +1,15 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useSegments } from 'expo-router';
 import { colors } from '../../src/ui';
 import { useAuth } from '../../src/providers/auth-provider';
 
 export default function AppLayout() {
   const { status } = useAuth();
+  const segments = useSegments();
   if (status === 'unauthenticated') {
     return <Redirect href={'/(auth)/login' as any} />;
   }
+
+  const hideTabBar = segments.length > 2;
 
   return (
     <Tabs
@@ -14,13 +17,16 @@ export default function AppLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          borderTopColor: colors.border,
-          backgroundColor: colors.surface,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8
-        }
+        tabBarStyle: [
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.surface,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 8
+          },
+          hideTabBar ? { display: 'none' } : null
+        ]
       }}
     >
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
@@ -34,4 +40,3 @@ export default function AppLayout() {
     </Tabs>
   );
 }
-

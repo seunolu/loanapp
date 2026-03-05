@@ -78,6 +78,10 @@ export function validateEnv(config: Record<string, unknown>): Env {
     if (env.OTP_DEV_MODE) {
       throw new Error('Invalid environment configuration: OTP_DEV_MODE must be false in production.');
     }
+
+    if (env.BVN_DEV_MODE) {
+      throw new Error('Invalid environment configuration: BVN_DEV_MODE must be false in production.');
+    }
   }
 
   return env;

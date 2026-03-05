@@ -3,6 +3,7 @@ import { requestOtp, verifyOtp as verifyOtpApi } from '../lib/api';
 import { clearTokens, setTokens } from './token-storage';
 import { hydrateStoredSession, validateSession } from './auth-service';
 import { subscribeSessionExpired } from './session-events';
+import { normalizePhoneE164 } from '../lib/phone';
 
 type LoginInput = { phone: string; password: string };
 type SignupInput = { phone: string; password: string; fullName: string };
@@ -23,22 +24,10 @@ type AuthContextValue = {
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
 
-function normalizePhone(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return '';
-  }
-  const compact = trimmed.replace(/[\s()-]/g, '');
-  if (compact.startsWith('00')) {
-    return `+${compact.slice(2)}`;
-  }
-  return compact;
-}
-
 function toApiPhoneOrThrow(input: string): string {
-  const normalized = normalizePhone(input);
+  const normalized = normalizePhoneE164(input);
   if (!PHONE_REGEX.test(normalized)) {
-    throw new Error('Enter phone in international format, e.g. +2348012345678.');
+    throw new Error('Enter a valid phone number, e.g. +2348012345678.');
   }
   return normalized;
 }
@@ -175,4 +164,3 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
-

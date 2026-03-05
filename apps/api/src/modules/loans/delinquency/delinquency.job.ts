@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TenantLoanApplicationStatus } from '@prisma/client';
+import type { Env } from '../../../common/config/env.schema';
 import { PrismaService } from '../../../common/database/prisma.service';
 import { FeatureFlagService } from '../../../common/feature-flags/feature-flag.service';
 import { DelinquencyEngineService } from './delinquency-engine.service';
@@ -12,19 +13,19 @@ export class DelinquencyJob implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    @Optional() @Inject(ConfigService) private readonly configService: ConfigService<Env, true> | undefined,
     private readonly delinquencyEngine: DelinquencyEngineService,
     private readonly featureFlagService: FeatureFlagService
   ) {}
 
   onModuleInit(): void {
-    const enabled = this.configService.get<string>('DELINQUENCY_JOB_ENABLED') ?? 'true';
+    const enabled = this.configService?.get<string>('DELINQUENCY_JOB_ENABLED') ?? 'true';
     if (enabled === 'false') {
       this.logger.log('Delinquency job disabled by DELINQUENCY_JOB_ENABLED=false');
       return;
     }
 
-    const cron = this.configService.get<string>('DELINQUENCY_JOB_CRON') ?? '*/5 * * * *';
+    const cron = this.configService?.get<string>('DELINQUENCY_JOB_CRON') ?? '*/5 * * * *';
     const intervalMs = this.cronToIntervalMs(cron);
     this.logger.log(`Delinquency job started with interval ${intervalMs}ms (cron=${cron})`);
 

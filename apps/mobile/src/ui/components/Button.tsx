@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle, type AccessibilityProps } from 'react-native';
 import { Pressable, Text } from '../primitives';
+import type { PressableRef } from '../primitives/Pressable';
 import { useTheme } from '../theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -18,20 +19,23 @@ type ButtonProps = {
   style?: StyleProp<ViewStyle>;
 } & Pick<AccessibilityProps, 'accessibilityLabel' | 'accessibilityHint' | 'accessibilityRole'>;
 
-export function Button({
-  children,
-  label,
-  onPress,
-  variant = 'primary',
-  size = 'md',
-  disabled = false,
-  loading = false,
-  fullWidth = false,
-  style,
-  accessibilityLabel,
-  accessibilityHint,
-  accessibilityRole
-}: ButtonProps): React.JSX.Element {
+const Button = React.forwardRef<PressableRef, ButtonProps>(function Button(
+  {
+    children,
+    label,
+    onPress,
+    variant = 'primary',
+    size = 'md',
+    disabled = false,
+    loading = false,
+    fullWidth = false,
+    style,
+    accessibilityLabel,
+    accessibilityHint,
+    accessibilityRole
+  },
+  ref
+): React.JSX.Element {
   const t = useTheme();
   const isBlocked = disabled || loading;
   const textColor = variant === 'primary' || variant === 'danger' ? t.colors.textInverse : t.colors.text;
@@ -39,6 +43,7 @@ export function Button({
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       disabled={isBlocked}
       accessibilityLabel={accessibilityLabel}
@@ -60,7 +65,9 @@ export function Button({
       </Text>
     </Pressable>
   );
-}
+});
+
+Button.displayName = 'Button';
 
 const styles = StyleSheet.create({
   base: {
@@ -92,3 +99,4 @@ const variantStyles = (t: ReturnType<typeof useTheme>) =>
   });
 
 export type { ButtonProps, ButtonSize, ButtonVariant };
+export { Button };

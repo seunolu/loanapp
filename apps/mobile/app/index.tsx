@@ -1,8 +1,8 @@
-import { Redirect } from "expo-router";
-import { useEffect, useState } from "react";
-import { useAuth } from "../src/providers/auth-provider";
-import { getOnboardingSeen } from "../src/lib/storage";
-import { FullScreenLoader } from "../src/ui";
+import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { getOnboardingSeen } from '../src/lib/storage';
+import { useAuth } from '../src/providers/auth-provider';
+import { FullScreenLoader } from '../src/ui';
 
 export default function Index() {
   const { status } = useAuth();
@@ -10,7 +10,7 @@ export default function Index() {
 
   useEffect(() => {
     let active = true;
-    if (status !== "unauthenticated") {
+    if (status !== 'unauthenticated') {
       return () => {
         active = false;
       };
@@ -31,13 +31,13 @@ export default function Index() {
     };
   }, [status]);
 
-  if (status === "unknown" || (status === "unauthenticated" && onboardingSeen === null)) {
+  if (status === 'unknown' || (status === 'unauthenticated' && onboardingSeen === null)) {
     return <FullScreenLoader message="Preparing your workspace..." />;
   }
 
-  if (status === "authenticated") {
-    return <Redirect href={"/(app)/home" as any} />;
+  if (status === 'authenticated') {
+    return <Redirect href={'/home' as any} />;
   }
 
-  return <Redirect href={(onboardingSeen ? "/(auth)/login" : "/(auth)/onboarding") as any} />;
+  return <Redirect href={(onboardingSeen ? '/login' : '/onboarding') as any} />;
 }

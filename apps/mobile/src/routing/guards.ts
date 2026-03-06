@@ -1,7 +1,7 @@
 export const ROUTES = {
-  authLogin: '/(auth)/login',
-  authLanding: '/(app)/home',
-  kycGate: '/(app)/profile/kyc',
+  authLogin: '/login',
+  authLanding: '/home',
+  kycGate: '/profile/kyc',
   tenant: '/tenant'
 } as const;
 

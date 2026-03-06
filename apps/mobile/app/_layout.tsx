@@ -109,7 +109,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }): React.JSX.E
         title: 'Session expired',
         message: 'Please log in again.'
       });
-      router.replace('/(auth)/login');
+      router.replace(ROUTES.authLogin);
     });
     return unsubscribe;
   }, [clearTenant, router]);
